@@ -26,23 +26,34 @@
   </div>
 
   <header>
-    <div class="brand">
-      <div class="logo">
-        <img src="image/logo.svg" alt="大会ロゴ">
+    <div class="header-top">
+      <div class="brand">
+        <div class="logo">
+          <img src="image/logo.svg" alt="大会ロゴ">
+        </div>
+        <div>
+          <div class="title">立命杯2026</div>
+        </div>
       </div>
-      <div>
-        <div class="title">立命杯2026</div>
-      </div>
+
+      <button class="menu-toggle" aria-label="メニューを開く">☰</button>
     </div>
 
-    <button class="menu-toggle" aria-label="メニューを開く">☰</button>
+    <div class="quick-nav" id="quick-nav">
+      <a href="#next-match" data-target="next-match">⚔️ 次の試合</a>
+      <a href="#documents" data-target="documents">📄 配布資料</a>
+      <a href="#rules" data-target="rules">📋 ルール</a>
+      <a href="#venue" data-target="venue">📍 会場</a>
+      <a href="#tournament" data-target="tournament">🏆 トーナメント表</a>
+      <a href="#schedule" data-target="schedule">🕒 スケジュール</a>
+    </div>
 
     <nav>
       <a href="#about">概要</a>
+      <a href="#next-match">次の試合</a>
       <a href="#documents">配布資料</a>
       <a href="#rules">ルール</a>
       <a href="#venue">会場</a>
-      <a href="#next-match" class="emph">次の試合</a>
       <a href="#tournament">トーナメント表</a>
       <a href="#schedule">スケジュール</a>
       <a href="#sponsors">スポンサー</a>
@@ -52,6 +63,26 @@
   </header>
 
   <main>
+    <!-- 次の試合（最優先で先頭に表示） -->
+    <section id="next-match" class="card2">
+      <h2>次の試合</h2>
+      <div class="courts">
+        <div class="court">
+          <h3>Bコート</h3>
+          <p class="nmsize">現在の試合番号: <span id="match-b">—</span></p>
+          <p>次の試合の対戦カード</p>
+          <p class="teams" id="match-b-teams">—</p>
+        </div>
+
+        <div class="court">
+          <h3>Aコート</h3>
+          <p class="nmsize">現在の試合番号: <span id="match-a">—</span></p>
+          <p>次の試合の対戦カード</p>
+          <p class="teams" id="match-a-teams">—</p>
+        </div>
+      </div>
+    </section>
+
     <!-- 大会概要 -->
     <section id="about" class="card">
       <h2>大会概要</h2>
@@ -112,26 +143,6 @@
         <!-- 会場写真 -->
         <div class="venue-photo">
           <img src="image/map.jpg" alt="会場の様子">
-        </div>
-      </div>
-    </section>
-
-    <!-- 次の試合 -->
-    <section id="next-match" class="card2">
-      <h2>次の試合</h2>
-      <div class="courts">
-        <div class="court">
-          <h3>Bコート</h3>
-          <p class="nmsize">現在の試合番号: <span id="match-b">—</span></p>
-          <p>次の試合の対戦カード</p>
-          <p class="teams" id="match-b-teams">—</p>
-        </div>
-
-        <div class="court">
-          <h3>Aコート</h3>
-          <p class="nmsize">現在の試合番号: <span id="match-a">—</span></p>
-          <p>次の試合の対戦カード</p>
-          <p class="teams" id="match-a-teams">—</p>
         </div>
       </div>
     </section>
@@ -232,5 +243,6 @@
 
   <!-- 末尾 -->
   <script src="script.js?v=20251206"></script>
+  <script src="quicknav.js?v=20260802"></script>
 </body>
 </html>

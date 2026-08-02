@@ -1,3 +1,13 @@
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
 :root {
   --primary: #7b1e24;       /* ヘッダー・アクセント */
   --primary-light: #a54c52; /* ボタンやリンク */
@@ -13,7 +23,7 @@ body {
   font-family: "Noto Sans JP", sans-serif;
   background-color: var(--bg);
   color: var(--text-dark);
-  padding: 100px 24px 0 24px /* ヘッダー固定分の余白 */
+  padding: 150px 24px 0 24px; /* ヘッダー固定分（2段）の余白 */
 }
 
 /* ヘッダー */
@@ -23,19 +33,23 @@ header {
   width: 100%;
   background-color: var(--primary);
   color: var(--text-light);
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.15);
   z-index: 1000;
+}
+
+/* 1段目：ロゴ＋ハンバーガー */
+.header-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 20px;
-  flex-wrap: wrap; /* 追加 */
+  padding: 8px 20px;
 }
 
 header .brand {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0; /* テキスト省略のため */
 }
 
 header .logo {
@@ -43,6 +57,7 @@ header .logo {
   height: 75px;
   border-radius: 8px;
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .logo img {
@@ -54,44 +69,138 @@ header .logo {
 header .title {
   font-weight: bold;
   font-size: 1.5em;
+  white-space: nowrap;
 }
 
+/* 2段目：常時表示のクイックタブバー */
+.quick-nav {
+  display: flex;
+  gap: 8px;
+  padding: 8px 16px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  background-color: rgba(0, 0, 0, 0.18);
+  scrollbar-width: none;
+}
+
+.quick-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.quick-nav a {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.12);
+  color: var(--text-light);
+  text-decoration: none;
+  font-size: 0.85em;
+  font-weight: bold;
+  white-space: nowrap;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  transition: background-color 0.2s, transform 0.15s, border-color 0.2s;
+}
+
+.quick-nav a:hover {
+  background-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+.quick-nav a.active {
+  background-color: var(--text-light);
+  color: var(--primary);
+  border-color: var(--text-light);
+}
+
+/* ハンバーガーで開く全項目メニュー（ドロワー） */
 header nav {
-  display: none; /* 初期状態では非表示に変更 */
-  flex-direction: column; /* 追加 */
-  width: 100%; /* 追加 */
-  background-color: var(--primary); /* 追加 */
-  text-align: center; /* 追加 */
-  padding: 10px 0; /* 追加 */
-  margin-right: 0; /* 変更 */
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  background-color: var(--primary-light);
+  text-align: center;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  padding: 0;
+  transition: max-height 0.35s ease, opacity 0.25s ease, padding 0.35s ease;
+  box-shadow: 0 6px 10px rgba(0,0,0,0.15);
 }
 
 header nav a {
-  display: block; /* 追加 */
-  margin: 10px 0; /* 変更 */
+  display: block;
+  margin: 0;
+  padding: 12px 0;
   text-decoration: none;
   color: var(--text-light);
   font-weight: bold;
+  border-top: 1px solid rgba(255,255,255,0.15);
 }
 
 header nav a:hover {
+  background-color: rgba(255,255,255,0.1);
   color: #f4cccc;
-}
-
-/* ハンバーガーボタン */
-.menu-toggle {
-  display: block; /* PC/スマホ共に表示 */
-  font-size: 1.8rem;
-  background: none;
-  border: none;
-  color: var(--text-light);
-  cursor: pointer;
-  margin-right: 25px;
 }
 
 /* メニュー展開時 */
 header.nav-open nav {
-  display: flex;
+  max-height: 600px;
+  opacity: 1;
+  padding: 4px 0 10px;
+}
+
+/* ハンバーガーボタン */
+.menu-toggle {
+  display: block;
+  font-size: 1.8rem;
+  line-height: 1;
+  background: none;
+  border: none;
+  color: var(--text-light);
+  cursor: pointer;
+  margin-right: 0;
+  padding: 4px 8px;
+  transition: transform 0.3s ease;
+}
+
+header.nav-open .menu-toggle {
+  transform: rotate(90deg);
+}
+
+@media (max-width: 600px) {
+  body {
+    padding-top: 128px;
+  }
+
+  header .logo {
+    width: 130px;
+    height: 48px;
+  }
+
+  header .title {
+    font-size: 1.1em;
+  }
+
+  .header-top {
+    padding: 6px 14px;
+  }
+
+  .quick-nav {
+    padding: 6px 12px;
+  }
+
+  .quick-nav a {
+    font-size: 0.78em;
+    padding: 6px 11px;
+  }
+
+  .card,
+  .card2 {
+    scroll-margin-top: 132px;
+  }
 }
 
 /* メインビジュアル */
@@ -143,7 +252,7 @@ header.nav-open nav {
   padding-right: 24px;
   padding-bottom: 24px;
   padding-top: 10px;
-  scroll-margin-top: 100px; 
+  scroll-margin-top: 160px; 
 }
 
 /* スケジュール表 */
@@ -363,7 +472,6 @@ footer {
 /* レスポンシブ */
 @media (max-width: 600px) {
   .hero h1 { font-size: 24px; }
-  nav a { margin-left: 8px; font-size: 0.9em; }
   .courts { flex-direction: column; }
 }
 
@@ -381,7 +489,7 @@ footer {
   padding-top: 5px;
   border: red 5px solid;
   background-color: rgba(255, 200, 200, 0.3);
-  scroll-margin-top: 100px; 
+  scroll-margin-top: 160px; 
 }
 
 .nmsize {
@@ -423,17 +531,6 @@ footer {
 
 .last {
   text-align: center;
-}
-
-/* ハンバーガーボタン */
-.menu-toggle {
-  display: block; /* PC/スマホ共に表示 */
-  font-size: 1.8rem;
-  background: none;
-  border: none;
-  color: var(--text-light);
-  cursor: pointer;
-  margin-right: 25px;
 }
 
 /* ---------- スマホ用 ---------- */
