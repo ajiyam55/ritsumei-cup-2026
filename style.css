@@ -16,6 +16,7 @@ html {
   --text-dark: #333;
   --text-light: #fff;
   --muted: #777;
+  --header-h: 150px; /* JSで実測して上書きされる（フォールバック値） */
 }
 
 body {
@@ -23,7 +24,9 @@ body {
   font-family: "Noto Sans JP", sans-serif;
   background-color: var(--bg);
   color: var(--text-dark);
-  padding: 150px 24px 0 24px; /* ヘッダー固定分（2段）の余白 */
+  padding-top: var(--header-h); /* ヘッダー固定分の余白（JSで実測して自動調整） */
+  padding-left: 24px;
+  padding-right: 24px;
 }
 
 /* ヘッダー */
@@ -248,8 +251,8 @@ header.nav-open .menu-toggle {
 }
 
 @media (max-width: 600px) {
-  body {
-    padding-top: 128px;
+  :root {
+    --header-h: 128px; /* JSが実測するまでの暫定値 */
   }
 
   header .logo {
@@ -272,11 +275,6 @@ header.nav-open .menu-toggle {
   .quick-nav a {
     font-size: 0.78em;
     padding: 6px 11px;
-  }
-
-  .card,
-  .card2 {
-    scroll-margin-top: 132px;
   }
 }
 
@@ -329,7 +327,7 @@ header.nav-open .menu-toggle {
   padding-right: 24px;
   padding-bottom: 24px;
   padding-top: 10px;
-  scroll-margin-top: 160px; 
+  scroll-margin-top: calc(var(--header-h) + 12px);
 }
 
 /* スケジュール表 */
@@ -566,7 +564,7 @@ footer {
   padding-top: 5px;
   border: red 5px solid;
   background-color: rgba(255, 200, 200, 0.3);
-  scroll-margin-top: 160px; 
+  scroll-margin-top: calc(var(--header-h) + 12px);
 }
 
 .nmsize {
