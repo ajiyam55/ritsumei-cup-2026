@@ -1,0 +1,640 @@
+:root {
+  --primary: #7b1e24;       /* ヘッダー・アクセント */
+  --primary-light: #a54c52; /* ボタンやリンク */
+  --bg: #ffffff;            /* ページ全体の背景 */
+  --card-bg: rgba(255,255,255,0.9); /* セクション背景（半透明で写真対応） */
+  --text-dark: #333;
+  --text-light: #fff;
+  --muted: #777;
+}
+
+body {
+  margin: 0;
+  font-family: "Noto Sans JP", sans-serif;
+  background-color: var(--bg);
+  color: var(--text-dark);
+  padding: 100px 24px 0 24px /* ヘッダー固定分の余白 */
+}
+
+/* ヘッダー */
+header {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%;
+  background-color: var(--primary);
+  color: var(--text-light);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  z-index: 1000;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+  flex-wrap: wrap; /* 追加 */
+}
+
+header .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+header .logo {
+  width: 200px;
+  height: 75px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+header .title {
+  font-weight: bold;
+  font-size: 1.5em;
+}
+
+header nav {
+  display: none; /* 初期状態では非表示に変更 */
+  flex-direction: column; /* 追加 */
+  width: 100%; /* 追加 */
+  background-color: var(--primary); /* 追加 */
+  text-align: center; /* 追加 */
+  padding: 10px 0; /* 追加 */
+  margin-right: 0; /* 変更 */
+}
+
+header nav a {
+  display: block; /* 追加 */
+  margin: 10px 0; /* 変更 */
+  text-decoration: none;
+  color: var(--text-light);
+  font-weight: bold;
+}
+
+header nav a:hover {
+  color: #f4cccc;
+}
+
+/* ハンバーガーボタン */
+.menu-toggle {
+  display: block; /* PC/スマホ共に表示 */
+  font-size: 1.8rem;
+  background: none;
+  border: none;
+  color: var(--text-light);
+  cursor: pointer;
+  margin-right: 25px;
+}
+
+/* メニュー展開時 */
+header.nav-open nav {
+  display: flex;
+}
+
+/* メインビジュアル */
+.hero {
+  position: relative;
+  background: url('hero-bg.jpg') center/cover no-repeat;
+  color: var(--text-light);
+  text-align: center;
+  padding: 80px 24px;
+  border-radius: 12px;
+  margin: 24px auto;
+  max-width: 900px;
+}
+
+.hero::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(255,255,255,0.2); /* 白オーバーレイで文字読みやすく */
+  backdrop-filter: blur(5px);
+  border-radius: 12px;
+  z-index: 0;
+}
+
+.hero h1 {
+  position: relative;
+  z-index: 1;
+  font-size: 32px;
+  margin: 0;
+}
+
+.hero p {
+  position: relative;
+  z-index: 1;
+  margin-top: 12px;
+}
+
+/* セクション共通 */
+.card {
+  position: relative;
+  background: var(--card-bg);
+  backdrop-filter: blur(5px);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  margin: 24px auto;
+  max-width: 900px;
+  padding-left: 24px;
+  padding-right: 24px;
+  padding-bottom: 24px;
+  padding-top: 10px;
+  scroll-margin-top: 100px; 
+}
+
+/* スケジュール表 */
+.schedule-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: center;
+}
+
+.schedule-table th, .schedule-table td {
+  border: 1px solid #ccc;
+  padding: 10px;
+}
+
+.schedule-table th {
+  background-color: var(--primary);
+  color: var(--text-light);
+}
+
+.schedule-table tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+/* 次の試合 */
+.courts {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.court {
+  flex: 1;
+  min-width: 250px; /* 最小幅を設定 */
+  padding: 1rem;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  background-color: #f9f9f9;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(0,0, 0, 1);
+}
+
+/* 会場マップ */
+.venue-container {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.venue-container iframe,
+.venue-container .campus-map,
+.venue-container .venue-photo {
+  flex: 1;
+  min-width: 300px;
+  max-width: 600px;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.venue-photo {
+  overflow: hidden; /* 追加 */
+}
+
+.venue-photo img {
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  object-fit: cover;
+  display: block; /* 追加 */
+}
+
+@media (max-width: 600px) {
+  .venue-container {
+    flex-direction: column;
+  }
+  
+  .venue-container iframe,
+  .venue-container .venue-photo {
+    min-width: 100%;
+    max-width: 100%; /* 追加 */
+  }
+}
+
+/* スポンサー */
+.sponsor-logos {
+  display: flex;
+  justify-content: center;  /* 中央揃え */
+  gap: 20px;                /* ロゴ間の隙間 */
+  flex-wrap: wrap;           /* 狭い画面では下に折り返す */
+  align-items: center;
+  margin-top: 20px;
+}
+
+.sponsor-logos img {
+  max-width: 150px;       /* 横幅制限 */
+  max-height: 80px;       /* 高さ制限 */
+  object-fit: contain;    /* アスペクト比保持 */
+  border-radius: 8px;
+  background-color: #fff; /* 透過ロゴの背景 */
+  padding: 5px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.sponsor-logos img:hover {
+  transform: scale(1.05); /* ホバーで少し拡大 */
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+/* 配布資料 */
+.document-links {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+
+.document-link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 30px;
+  background-color: var(--primary);
+  color: var(--text-light);
+  text-decoration: none;
+  border-radius: 12px;
+  transition: background-color 0.3s, transform 0.2s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  min-width: 180px; /* 少し狭く */
+  flex: 1 1 calc(33.333% - 20px); /* 3列に均等配置 */
+  max-width: 250px; /* 最大幅を制限 */
+}
+
+.document-link:hover {
+  background-color: var(--primary-light);
+  transform: translateY(-3px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+}
+
+.document-link .icon {
+  font-size: 2.5em;
+}
+
+.document-link .text {
+  font-weight: bold;
+  text-align: center;
+  font-size: 0.95em; /* 少し小さく */
+}
+
+@media (max-width: 600px) {
+  .document-link {
+    min-width: 150px;
+    padding: 15px 20px;
+    flex: 1 1 100%; /* スマホでは縦並び */
+    max-width: 300px;
+  }
+  
+  .document-link .icon {
+    font-size: 2em;
+  }
+  
+  .document-link .text {
+    font-size: 0.9em;
+  }
+}
+
+/* トーナメント表ボタン */
+#tournament a {
+  transition: background-color 0.3s, transform 0.2s;
+}
+
+#tournament a:hover {
+  background-color: var(--primary-light);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+@media (max-width: 600px) {
+  .sponsor-logos img {
+    max-width: 120px;
+    max-height: 60px;
+  }
+  
+  .document-link {
+    min-width: 150px;
+    padding: 15px 20px;
+  }
+  
+  .document-link .icon {
+    font-size: 2em;
+  }
+  
+  .document-link .text {
+    font-size: 0.9em;
+  }
+  
+  #tournament a {
+    width: 90%;
+    max-width: 300px;
+    box-sizing: border-box;
+  }
+}
+
+
+/* フッター */
+footer {
+  background-color: var(--primary);
+  color: var(--text-light);
+  text-align: center;
+  padding: 16px 24px;
+  border-radius: 0 0 12px 12px;
+}
+
+/* レスポンシブ */
+@media (max-width: 600px) {
+  .hero h1 { font-size: 24px; }
+  nav a { margin-left: 8px; font-size: 0.9em; }
+  .courts { flex-direction: column; }
+}
+
+.card2 {
+  position: relative;
+  background: var(--card-bg);
+  backdrop-filter: blur(5px);
+  border-radius: 2px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  margin: 24px auto;
+  max-width: 900px;
+  padding-left: 24px;
+  padding-right: 24px;
+  padding-bottom: 24px;
+  padding-top: 5px;
+  border: red 5px solid;
+  background-color: rgba(255, 200, 200, 0.3);
+  scroll-margin-top: 100px; 
+}
+
+.nmsize {
+  font-size: 1.5em;
+}
+
+.team-red {
+  color: #e53935;
+  font-weight: bold;
+}
+
+.team-blue {
+  color: #1e88e5;
+  font-weight: bold;
+}
+
+.label-red {
+  background-color: #e53935;
+  color: white;
+  border-radius: 4px;
+  padding: 2px 6px;
+  margin-right: 4px;
+  font-size: 0.9em;
+}
+
+.label-blue {
+  background-color: #1e88e5;
+  color: white;
+  border-radius: 4px;
+  padding: 2px 6px;
+  margin-right: 4px;
+  font-size: 0.9em;
+}
+
+.vs {
+  margin: 0 8px;
+  font-weight: bold;
+}
+
+.last {
+  text-align: center;
+}
+
+/* ハンバーガーボタン */
+.menu-toggle {
+  display: block; /* PC/スマホ共に表示 */
+  font-size: 1.8rem;
+  background: none;
+  border: none;
+  color: var(--text-light);
+  cursor: pointer;
+  margin-right: 25px;
+}
+
+/* ---------- スマホ用 ---------- */
+@media (max-width: 768px) {
+  .teams {
+    grid-template-columns: 1fr 30px 1fr; /* VSの幅を少し広げて調整 */
+    gap: 0.3rem;
+    width: 100%; /* 親要素いっぱいに広げる */
+  }
+  
+  .team-line {
+    padding: 0.5rem 0.3rem; /* 左右の余白を統一 */
+    font-size: 0.85em;
+  }
+  
+  .vs {
+    font-size: 1em;
+    padding: 0;
+    text-align: center; /* 中央揃え */
+  }
+  
+  .court {
+    width: 100%;
+    padding: 0.8rem; /* 上下左右同じ余白 */
+    box-sizing: border-box; /* パディング込みで幅計算 */
+  }
+  
+  .label-red,
+  .label-blue {
+    font-size: 0.75em;
+    padding: 1px 4px;
+  }
+  
+  .team-red,
+  .team-blue {
+    font-size: 0.9em;
+    word-break: break-all;
+  }
+}
+
+/* トーナメント表 */
+.tournament-container {
+  position: relative;
+  width: 100%;
+  padding-top: 50%;
+  background: #000;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  overflow: hidden;
+}
+
+.tournament-container iframe {
+  position: absolute;
+  top: 0;
+  left: 6%;
+  width: 110%;
+  height: 100%;
+  border: none;
+  background: transparent;
+}
+
+/* PC表示時はボタンを非表示 */
+@media (min-width: 601px) {
+  #tournament > p {
+    display: none;
+  }
+}
+
+/* オープニングエフェクト */
+.opening-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #7b1e24 0%, #a54c52 50%, #7b1e24 100%);
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  animation: fadeOut 1s ease-in-out 2.5s forwards;
+  pointer-events: none;
+}
+
+.opening-content {
+  text-align: center;
+  color: white;
+  animation: scaleIn 1s ease-out;
+}
+
+.opening-logo {
+  width: 200px;
+  height: 200px;
+  margin: 0 auto 2rem;
+  animation: logoGlow 2s ease-in-out infinite;
+}
+
+.opening-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.8));
+}
+
+.opening-title {
+  font-size: 3.5rem;
+  font-weight: bold;
+  margin: 0;
+  letter-spacing: 0.5rem;
+  animation: slideUp 1s ease-out 0.3s both;
+  text-shadow: 0 0 30px rgba(255, 255, 255, 0.5);
+}
+
+.opening-date {
+  font-size: 1.5rem;
+  margin-top: 1rem;
+  letter-spacing: 0.3rem;
+  animation: slideUp 1s ease-out 0.6s both;
+  opacity: 0.9;
+}
+
+.opening-line {
+  width: 0;
+  height: 3px;
+  background: white;
+  margin: 2rem auto 0;
+  animation: lineExpand 1s ease-out 0.9s both;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+}
+
+/* アニメーション定義 */
+@keyframes fadeOut {
+  0% {
+    opacity: 1;
+    visibility: visible;
+  }
+  100% {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+@keyframes scaleIn {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  0% {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes lineExpand {
+  0% {
+    width: 0;
+  }
+  100% {
+    width: 300px;
+  }
+}
+
+@keyframes logoGlow {
+  0%, 100% {
+    filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.8));
+  }
+  50% {
+    filter: drop-shadow(0 0 40px rgba(255, 255, 255, 1));
+  }
+}
+
+/* スマホ対応 */
+@media (max-width: 600px) {
+  .opening-logo {
+    width: 150px;
+    height: 150px;
+  }
+  
+  .opening-title {
+    font-size: 2rem;
+    letter-spacing: 0.3rem;
+  }
+  
+  .opening-date {
+    font-size: 1.2rem;
+  }
+  
+  @keyframes lineExpand {
+    100% {
+      width: 200px;
+    }
+  }
+}

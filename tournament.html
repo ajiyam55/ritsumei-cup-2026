@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>トーナメント表 - 立命杯2025</title>
+  
+  <!-- キャッシュ制御 -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+    
+    .container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+    
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+    
+    /* 戻るボタン */
+    .back-button {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      z-index: 1000;
+      background-color: rgba(123, 30, 36, 0.9);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: bold;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      transition: background-color 0.3s;
+    }
+    
+    .back-button:hover {
+      background-color: rgba(165, 76, 82, 0.9);
+    }
+  </style>
+</head>
+<body>
+  <a href="index.html" class="back-button">← 戻る</a>
+  <div class="container">
+    <iframe 
+      id="tournament-iframe"
+      src="https://terus.jp/knockoutdraw/v2/?k=3889f23db7a35dc69dce412e818863e7">
+    </iframe>
+  </div>
+  
+  <script>
+    // 10秒ごとに自動リロード
+    const iframe = document.getElementById('tournament-iframe');
+    setInterval(() => {
+      iframe.src = iframe.src.split('&_=')[0] + '&_=' + Date.now();
+    }, 10000);
+  </script>
+</body>
+</html>
