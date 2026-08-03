@@ -690,7 +690,7 @@ footer {
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding-top: 14vh;
+  padding-top: 20vh;
   overflow: hidden;
   animation: fadeOut 0.7s ease-in-out 1.6s forwards;
   pointer-events: none;
@@ -839,21 +839,37 @@ footer {
 /* スマホ対応 */
 @media (max-width: 600px) {
   .opening-overlay {
-    padding-top: 11vh;
+    align-items: center;
+    padding-top: 0;
+  }
+
+  .opening-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    height: 66vh;
   }
 
   .opening-logo {
     width: 150px;
     height: 150px;
+    margin: 0;
   }
   
   .opening-title {
     font-size: 2rem;
     letter-spacing: 0.3rem;
+    margin: 0;
   }
   
   .opening-date {
     font-size: 1.2rem;
+    margin: 0;
+  }
+
+  .opening-line {
+    margin: 0 auto;
   }
   
   @keyframes lineExpand {
