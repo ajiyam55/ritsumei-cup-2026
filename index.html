@@ -40,15 +40,17 @@
     </div>
 
     <div class="quick-nav" id="quick-nav">
-      <a href="#next-match" data-target="next-match">⚔️ 次の試合</a>
-      <a href="#tournament" data-target="tournament">🏆 トーナメント表</a>
-      <a href="#documents" data-target="documents">📄 配布資料</a>
-      <a href="#rules" data-target="rules">📋 ルール</a>
-      <a href="#venue" data-target="venue">📍 会場</a>
-      <a href="#schedule" data-target="schedule">🕒 スケジュール</a>
+      <a href="#entry" data-target="entry">応募</a>
+      <a href="#next-match" data-target="next-match">次の試合</a>
+      <a href="#tournament" data-target="tournament">トーナメント表</a>
+      <a href="#documents" data-target="documents">配布資料</a>
+      <a href="#rules" data-target="rules">ルール</a>
+      <a href="#venue" data-target="venue">会場</a>
+      <a href="#schedule" data-target="schedule">スケジュール</a>
     </div>
 
     <nav>
+      <a href="#entry">応募</a>
       <a href="#next-match">次の試合</a>
       <a href="#tournament">トーナメント表</a>
       <a href="#about">概要</a>
@@ -63,22 +65,43 @@
   </header>
 
   <main>
+    <!-- 応募 -->
+    <section id="entry" class="card">
+      <h2>応募</h2>
+      <p>試合に参加される方は以下のボタンからお申し込みください。</p>
+      <p>〆切：10月10日</p>
+      <div style="text-align: center; margin-top: 1rem;">
+        <a href="https://forms.gle/your-google-form-link" 
+           style="display: inline-block; padding: 12px 24px; background-color: var(--primary); color: white; text-decoration: none; border-radius: 8px; font-weight: bold; text-align: center;">
+          応募フォームを開く
+        </a>
+      </div>
+      <p></p>
+    </section>
+
     <!-- 次の試合（最優先で先頭に表示） -->
     <section id="next-match" class="card2">
       <h2>次の試合</h2>
       <div class="courts">
         <div class="court">
           <h3>Aコート</h3>
+          <p class="nmsize">現在の試合番号: <span id="match-a">—</span></p>
+          <p>次の試合の対戦カード</p>
+          <p class="teams" id="match-a-teams">—</p>
+        </div>
+
+        <div class="court">
+          <h3>Bコート</h3>
           <p class="nmsize">現在の試合番号: <span id="match-b">—</span></p>
           <p>次の試合の対戦カード</p>
           <p class="teams" id="match-b-teams">—</p>
         </div>
 
         <div class="court">
-          <h3>Bコート</h3>
-          <p class="nmsize">現在の試合番号: <span id="match-a">—</span></p>
+          <h3>Cコート</h3>
+          <p class="nmsize">現在の試合番号: <span id="match-c">—</span></p>
           <p>次の試合の対戦カード</p>
-          <p class="teams" id="match-a-teams">—</p>
+          <p class="teams" id="match-c-teams">—</p>
         </div>
       </div>
     </section>
@@ -98,7 +121,7 @@
     <section id="about" class="card">
       <h2>大会概要</h2>
       <h3>2026年12月5日（土）開催</h3>
-      <p>今年で16回目となりました、毎年恒例の「立命杯」。フリーバトルもご用意しております！皆様のご参加心よりお待ちしております。</p>
+      <p>今年で16回目となりました、毎年恒例の「立命杯」。フリーバトルもご用意しております！皆様のご参加を心よりお待ちしております。</p>
     </section>
 
     <!-- 配布資料 -->
@@ -123,7 +146,7 @@
     <!-- ルール -->
     <section id="rules" class="card">
       <h2>ルール</h2>
-      <p>大会規則は第31回かわさきロボット競技大会(2026年大会)のルールに準拠いたします。</p>
+      <p>大会規則は第31回かわさきロボット競技大会（2026年大会）のルールに準拠いたします。</p>
       <p>入場に関する規定は、第29回かわさきロボット競技大会（2024年大会）の規定に準拠いたします。</p>
       <h3>＜第31回かわさきロボット競技大会と本大会との変更点について＞</h3>
       <ul>
@@ -132,10 +155,9 @@
         <li>予選リーグ各試合のスタートミスは1回までとします。</li>
         <li>修理時間3分経過後の延長はできません。</li>
         <li>ブレイクの場合、修理時間は3分間とします。3分経過後、修理が終了していない場合でも試合を開始します。</li>
-        <li>フィールド中央の山はアルミ製ですので、磁石はつきません。</li>
         <li>操縦者の移動範囲に制限はありません。</li>
         <li>フィールドを破損された場合は相手の一本とします。（フィールド破損とは，障害物が剥がれた場合とします．）</li>
-        <li>予選リーグの結果が1対1対1となった場合は、勝者をランダムで決定します。</li>
+        <li>予選リーグの結果が1対1対1となった場合は、勝者をランダムに決定します。</li>
       </ul>
       <h4>※ 予告なくルール・内容の変更がある場合がございます。予めご了承下さい。</h4>
     </section>
