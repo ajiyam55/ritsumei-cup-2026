@@ -356,10 +356,60 @@ header.nav-open .menu-toggle {
 }
 
 /* 次の試合 */
+.next-match-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.next-match-head h2 {
+  margin: 0;
+}
+
+.refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  border: 1px solid var(--primary);
+  background-color: #fff;
+  color: var(--primary);
+  border-radius: 999px;
+  font-weight: bold;
+  font-size: 0.85em;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s, transform 0.15s;
+}
+
+.refresh-btn:hover {
+  background-color: var(--primary);
+  color: var(--text-light);
+}
+
+.refresh-btn:active {
+  transform: scale(0.95);
+}
+
+.refresh-btn .refresh-icon {
+  display: inline-block;
+}
+
+.refresh-btn.is-refreshing .refresh-icon {
+  animation: refreshSpin 0.5s linear;
+}
+
+@keyframes refreshSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .courts {
   display: flex;
   gap: 1rem;
   flex-wrap: wrap;
+  margin-top: 1rem;
 }
 
 .court {
@@ -692,7 +742,7 @@ footer {
   align-items: flex-start;
   padding-top: 20vh;
   overflow: hidden;
-  animation: fadeOut 0.35s ease-in-out 0.6s forwards;
+  animation: fadeOut 0.4s ease-in-out 0.9s forwards;
   pointer-events: none;
 }
 

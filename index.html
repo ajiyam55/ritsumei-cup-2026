@@ -84,7 +84,12 @@
 
     <!-- 次の試合（最優先で先頭に表示） -->
     <section id="next-match" class="card2">
-      <h2>次の試合</h2>
+      <div class="next-match-head">
+        <h2>次の試合</h2>
+        <button id="refresh-match-btn" class="refresh-btn" type="button">
+          <span class="refresh-icon">🔄</span> 今すぐ更新
+        </button>
+      </div>
       <div class="courts">
         <div class="court">
           <h3>Aコート</h3>
@@ -92,14 +97,14 @@
           <p>次の試合の対戦カード</p>
           <p class="teams" id="match-a-teams">—</p>
         </div>
-
+ 
         <div class="court">
           <h3>Bコート</h3>
           <p class="nmsize">現在の試合番号: <span id="match-b">—</span></p>
           <p>次の試合の対戦カード</p>
           <p class="teams" id="match-b-teams">—</p>
         </div>
-
+ 
         <div class="court">
           <h3>Cコート</h3>
           <p class="nmsize">現在の試合番号: <span id="match-c">—</span></p>
@@ -108,7 +113,7 @@
         </div>
       </div>
     </section>
-
+ 
     <!-- トーナメント表 -->
     <section id="tournament" class="card">
       <h2>トーナメント表</h2>

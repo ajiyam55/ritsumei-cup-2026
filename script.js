@@ -10,7 +10,6 @@ async function fetchNextMatch() {
     // 試合番号（空欄対応）
     document.getElementById("match-a").textContent = data.nextA || "—";
     document.getElementById("match-b").textContent = data.nextB || "—";
-    document.getElementById("match-c").textContent = data.nextC || "—";
 
     // Aコート対戦カード（赤左・青右固定 + ラベル付き）
     const teamA_red = data.teamA1 || "未設定";
@@ -40,19 +39,24 @@ async function fetchNextMatch() {
         <span class="team-blue">${teamB_blue}</span>
       </div>`;
 
-      // Cコート対戦カード（赤左・青右固定 + ラベル付き）
-    const teamC_red = data.teamC1 || "未設定";
-    const teamC_blue = data.teamC2 || "未設定";
-    document.getElementById("match-c-teams").innerHTML =
-      `<div class="team-line red-team">
-        <span class="label-red">赤</span>
-        <span class="team-red">${teamC_red}</span>
-      </div>
-      <span class="vs">VS</span>
-      <div class="team-line blue-team">
-        <span class="label-blue">青</span>
-        <span class="team-blue">${teamC_blue}</span>
-      </div>`;
+    // Cコート（存在する場合のみ更新。Apps Script側が nextC/teamC1/teamC2 を返すまでは "—" のまま）
+    const matchCEl = document.getElementById("match-c");
+    if (matchCEl) {
+      matchCEl.textContent = data.nextC || "—";
+
+      const teamC_red = data.teamC1 || "未設定";
+      const teamC_blue = data.teamC2 || "未設定";
+      document.getElementById("match-c-teams").innerHTML =
+        `<div class="team-line red-team">
+          <span class="label-red">赤</span>
+          <span class="team-red">${teamC_red}</span>
+        </div>
+        <span class="vs">VS</span>
+        <div class="team-line blue-team">
+          <span class="label-blue">青</span>
+          <span class="team-blue">${teamC_blue}</span>
+        </div>`;
+    }
   } catch (err) {
     console.error("fetch error:", err);
   }
@@ -61,6 +65,16 @@ async function fetchNextMatch() {
 window.addEventListener("DOMContentLoaded", () => {
   fetchNextMatch();
   setInterval(fetchNextMatch, 3000); // 3秒ごとに自動更新
+
+  // 「今すぐ更新」ボタン：ページリロードせずfetchNextMatchだけ再実行
+  const refreshBtn = document.getElementById("refresh-match-btn");
+  if (refreshBtn) {
+    refreshBtn.addEventListener("click", () => {
+      fetchNextMatch();
+      refreshBtn.classList.add("is-refreshing");
+      setTimeout(() => refreshBtn.classList.remove("is-refreshing"), 500);
+    });
+  }
   
   // トーナメント表の自動リロード
   const tournamentIframe = document.getElementById('tournament-iframe');
