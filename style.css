@@ -393,7 +393,12 @@ header.nav-open .menu-toggle {
 }
 
 .refresh-btn .refresh-icon {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+}
+
+.refresh-btn .refresh-icon svg {
+  display: block;
 }
 
 .refresh-btn.is-refreshing .refresh-icon {
