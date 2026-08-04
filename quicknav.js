@@ -54,6 +54,54 @@ document.addEventListener("DOMContentLoaded", () => {
     (idToLinks.get(id) || []).forEach((link) => link.classList.add("active"));
   };
 
+  // --- クイックタブ／ナビのジャンプを「常に一定時間（0.45秒）」で行う ---
+  // （ブラウザ標準のscroll-behavior:smoothは距離が長いと1秒を超えることがあるため）
+  const prefersReducedMotion = window.matchMedia(
+    "(prefers-reduced-motion: reduce)"
+  ).matches;
+
+  const easeInOutQuad = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+
+  const smoothScrollTo = (targetY, duration = 280) => {
+    const startY = window.scrollY;
+    const diff = targetY - startY;
+    if (Math.abs(diff) < 1) return;
+
+    if (prefersReducedMotion) {
+      window.scrollTo({ top: targetY, left: 0, behavior: "instant" });
+      return;
+    }
+
+    let startTime = null;
+    const step = (timestamp) => {
+      if (startTime === null) startTime = timestamp;
+      const progress = Math.min((timestamp - startTime) / duration, 1);
+      window.scrollTo({
+        top: startY + diff * easeInOutQuad(progress),
+        left: 0,
+        behavior: "instant",
+      });
+      if (progress < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  };
+
+  headerLinks.forEach((link) => {
+    link.addEventListener("click", (e) => {
+      const id = link.getAttribute("href").slice(1);
+      const target = document.getElementById(id);
+      if (!target) return;
+
+      e.preventDefault();
+      const headerOffset = (header ? header.offsetHeight : 0) + 12;
+      const targetY =
+        target.getBoundingClientRect().top + window.scrollY - headerOffset;
+
+      smoothScrollTo(targetY, 280);
+      history.pushState(null, "", `#${id}`);
+    });
+  });
+
   setActive("next-match"); // 初期表示
 
   if (!("IntersectionObserver" in window) || targets.length === 0) {
