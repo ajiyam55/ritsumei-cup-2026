@@ -428,6 +428,19 @@ header.nav-open .menu-toggle {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
+.next-next-label {
+  margin-top: 0.75rem;
+  padding-top: 0.6rem;
+  border-top: 1px dashed #ddd;
+  font-size: 0.8em;
+  color: var(--muted);
+}
+
+.next-next-teams {
+  font-size: 0.8em;
+  opacity: 0.8;
+}
+
 /* 会場マップ */
 .venue-container {
   display: flex;

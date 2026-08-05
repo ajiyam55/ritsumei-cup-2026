@@ -1,4 +1,4 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbwPCtb11HP0bb0JGxftEW8zJo0b11WoTMTIiW7IXrNHHIj2CizQK6qKhZNYwfbZS7RggA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbx_YKfaDrUCjURsOrAa3-nWQE9nd_jjn1xilldP491wKJph-iIJ7hTPSpSll_rUR1Jw/exec";
 async function fetchNextMatch() {
   try {
     const res = await fetch(API_URL, { cache: "no-store" }); // キャッシュ無効化で常に最新データ取得
@@ -7,56 +7,54 @@ async function fetchNextMatch() {
     const data = await res.json();
     console.log("fetched data:", data); // デバッグ用
 
-    // 試合番号（空欄対応）
-    document.getElementById("match-a").textContent = data.nextA || "—";
-    document.getElementById("match-b").textContent = data.nextB || "—";
+    const courts = ["a", "b", "c"];
+    const keyMap = { a: "A", b: "B", c: "C" };
 
-    // Aコート対戦カード（赤左・青右固定 + ラベル付き）
-    const teamA_red = data.teamA1 || "未設定";
-    const teamA_blue = data.teamA2 || "未設定";
-    document.getElementById("match-a-teams").innerHTML =
-      `<div class="team-line red-team">
-        <span class="label-red">赤</span>
-        <span class="team-red">${teamA_red}</span>
-      </div>
-      <span class="vs">VS</span>
-      <div class="team-line blue-team">
-        <span class="label-blue">青</span>
-        <span class="team-blue">${teamA_blue}</span>
-      </div>`;
+    courts.forEach((court) => {
+      const key = keyMap[court];
+      const numEl = document.getElementById(`match-${court}`);
+      if (!numEl) return; // このコートが存在しない場合はスキップ
 
-    // Bコート対戦カード（赤左・青右固定 + ラベル付き）
-    const teamB_red = data.teamB1 || "未設定";
-    const teamB_blue = data.teamB2 || "未設定";
-    document.getElementById("match-b-teams").innerHTML =
-      `<div class="team-line red-team">
-        <span class="label-red">赤</span>
-        <span class="team-red">${teamB_red}</span>
-      </div>
-      <span class="vs">VS</span>
-      <div class="team-line blue-team">
-        <span class="label-blue">青</span>
-        <span class="team-blue">${teamB_blue}</span>
-      </div>`;
+      // 現在の試合番号（スタッフが入力した番号そのまま）
+      numEl.textContent = data[`next${key}`] || "—";
 
-    // Cコート（存在する場合のみ更新。Apps Script側が nextC/teamC1/teamC2 を返すまでは "—" のまま）
-    const matchCEl = document.getElementById("match-c");
-    if (matchCEl) {
-      matchCEl.textContent = data.nextC || "—";
+      // 次の試合の対戦カード（機体番号＋機体名）
+      const teamRed = data[`team${key}1`] || "未設定";
+      const teamBlue = data[`team${key}2`] || "未設定";
+      const teamsEl = document.getElementById(`match-${court}-teams`);
+      if (teamsEl) {
+        teamsEl.innerHTML =
+          `<div class="team-line red-team">
+            <span class="label-red">赤</span>
+            <span class="team-red">${teamRed}</span>
+          </div>
+          <span class="vs">VS</span>
+          <div class="team-line blue-team">
+            <span class="label-blue">青</span>
+            <span class="team-blue">${teamBlue}</span>
+          </div>`;
+      }
 
-      const teamC_red = data.teamC1 || "未設定";
-      const teamC_blue = data.teamC2 || "未設定";
-      document.getElementById("match-c-teams").innerHTML =
-        `<div class="team-line red-team">
-          <span class="label-red">赤</span>
-          <span class="team-red">${teamC_red}</span>
-        </div>
-        <span class="vs">VS</span>
-        <div class="team-line blue-team">
-          <span class="label-blue">青</span>
-          <span class="team-blue">${teamC_blue}</span>
-        </div>`;
-    }
+      // 次の次の対戦カード（小さく表示）
+      const next2NumEl = document.getElementById(`match-${court}-next2-num`);
+      const next2TeamsEl = document.getElementById(`match-${court}-next2-teams`);
+      if (next2NumEl && next2TeamsEl) {
+        next2NumEl.textContent = data[`afterNext${key}`] || "—";
+
+        const teamRed2 = data[`team${key}1Next2`] || "未設定";
+        const teamBlue2 = data[`team${key}2Next2`] || "未設定";
+        next2TeamsEl.innerHTML =
+          `<div class="team-line red-team">
+            <span class="label-red">赤</span>
+            <span class="team-red">${teamRed2}</span>
+          </div>
+          <span class="vs">VS</span>
+          <div class="team-line blue-team">
+            <span class="label-blue">青</span>
+            <span class="team-blue">${teamBlue2}</span>
+          </div>`;
+      }
+    });
   } catch (err) {
     console.error("fetch error:", err);
   }
