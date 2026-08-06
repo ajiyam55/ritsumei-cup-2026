@@ -10,7 +10,7 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   
-  <link rel="stylesheet" href="style.css?v=20260813">
+  <link rel="stylesheet" href="style.css?v=20260822">
 </head>
 <body>
   <!-- オープニングエフェクト -->
@@ -94,35 +94,74 @@
               <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
             </svg>
           </span>
-          今すぐ更新
+          すべて更新
         </button>
       </div>
       <div class="courts">
         <div class="court">
-          <h3>Aコート</h3>
+          <div class="court-head">
+            <h3>Aコート</h3>
+            <button class="refresh-btn-mini" type="button" data-court="a" aria-label="Aコートを更新">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+              </svg>
+              更新
+            </button>
+          </div>
           <p class="nmsize">現在の試合番号: <span id="match-a">—</span></p>
-          <p>次の試合の対戦カード</p>
-          <p class="teams" id="match-a-teams">—</p>
-          <p class="next-next-label">待機</p>
-          <p class="teams next-next-teams" id="match-a-next2-teams">—</p>
+          <p class="color-legend"><span class="label-red">赤</span><span class="vs">VS</span><span class="label-blue">青</span></p>
+          <div class="match-list" id="match-a-list"></div>
+          <div class="waiting-block">
+            <p class="waiting-label">待機</p>
+            <p class="waiting-roster" id="match-a-waiting-roster">—</p>
+            <div class="waiting-match-list" id="match-a-waiting-list"></div>
+          </div>
         </div>
- 
+
         <div class="court">
-          <h3>Bコート</h3>
+          <div class="court-head">
+            <h3>Bコート</h3>
+            <button class="refresh-btn-mini" type="button" data-court="b" aria-label="Bコートを更新">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+              </svg>
+              更新
+            </button>
+          </div>
           <p class="nmsize">現在の試合番号: <span id="match-b">—</span></p>
-          <p>次の試合の対戦カード</p>
-          <p class="teams" id="match-b-teams">—</p>
-          <p class="next-next-label">待機</p>
-          <p class="teams next-next-teams" id="match-b-next2-teams">—</p>
+          <p class="color-legend"><span class="label-red">赤</span><span class="vs">VS</span><span class="label-blue">青</span></p>
+          <div class="match-list" id="match-b-list"></div>
+          <div class="waiting-block">
+            <p class="waiting-label">待機</p>
+            <p class="waiting-roster" id="match-b-waiting-roster">—</p>
+            <div class="waiting-match-list" id="match-b-waiting-list"></div>
+          </div>
         </div>
- 
+
         <div class="court">
-          <h3>Cコート</h3>
+          <div class="court-head">
+            <h3>Cコート</h3>
+            <button class="refresh-btn-mini" type="button" data-court="c" aria-label="Cコートを更新">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+              </svg>
+              更新
+            </button>
+          </div>
           <p class="nmsize">現在の試合番号: <span id="match-c">—</span></p>
-          <p>次の試合の対戦カード</p>
-          <p class="teams" id="match-c-teams">—</p>
-          <p class="next-next-label">待機</p>
-          <p class="teams next-next-teams" id="match-c-next2-teams">—</p>
+          <p class="color-legend"><span class="label-red">赤</span><span class="vs">VS</span><span class="label-blue">青</span></p>
+          <div class="match-list" id="match-c-list"></div>
+          <div class="waiting-block">
+            <p class="waiting-label">待機</p>
+            <p class="waiting-roster" id="match-c-waiting-roster">—</p>
+            <div class="waiting-match-list" id="match-c-waiting-list"></div>
+          </div>
         </div>
       </div>
     </section>
@@ -296,7 +335,7 @@
   </footer>
 
   <!-- 末尾 -->
-  <script src="script.js?v=20260803"></script>
-  <script src="quicknav.js?v=20260803c"></script>
+  <script src="script.js?v=20260822"></script>
+  <script src="quicknav.js?v=20260815"></script>
 </body>
 </html>

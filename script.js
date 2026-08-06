@@ -1,4 +1,29 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbx_YKfaDrUCjURsOrAa3-nWQE9nd_jjn1xilldP491wKJph-iIJ7hTPSpSll_rUR1Jw/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbwh3lXG7IJeWDe0i93ydI2xyIkhDCezdwb4A5UamDScSTeL5-oao9b_hEFStMw6aRc_/exec";
+
+function renderMatchRow(m) {
+  const namesBlock = m.current
+    ? `<div class="current-names">
+        <div>${m.red.num}番 ${m.red.name}</div>
+        <div>${m.blue.num}番 ${m.blue.name}</div>
+      </div>`
+    : "";
+  return `<div class="match-row${m.current ? " is-current" : ""}">
+    <span class="match-num">${m.num}</span>
+    <span class="team-plain">${m.red.num}番</span>
+    <span class="vs">VS</span>
+    <span class="team-plain">${m.blue.num}番</span>
+  </div>${namesBlock}`;
+}
+
+function renderWaitingRow(m) {
+  return `<div class="waiting-row">
+    <span class="match-num">${m.num}</span>
+    <span class="team-plain">${m.red.num}番</span>
+    <span class="vs">VS</span>
+    <span class="team-plain">${m.blue.num}番</span>
+  </div>`;
+}
+
 async function fetchNextMatch() {
   try {
     const res = await fetch(API_URL, { cache: "no-store" }); // キャッシュ無効化で常に最新データ取得
@@ -15,44 +40,26 @@ async function fetchNextMatch() {
       const numEl = document.getElementById(`match-${court}`);
       if (!numEl) return; // このコートが存在しない場合はスキップ
 
-      // 現在の試合番号（スタッフが入力した番号そのまま）
-      numEl.textContent = data[`next${key}`] || "—";
+      const courtData = (data.courts && data.courts[key]) || {};
 
-      // 次の試合の対戦カード（機体番号＋機体名）
-      const teamRed = data[`team${key}1`] || "未設定";
-      const teamBlue = data[`team${key}2`] || "未設定";
-      const teamsEl = document.getElementById(`match-${court}-teams`);
-      if (teamsEl) {
-        teamsEl.innerHTML =
-          `<div class="team-line red-team">
-            <span class="label-red">赤</span>
-            <span class="team-red">${teamRed}</span>
-          </div>
-          <span class="vs">VS</span>
-          <div class="team-line blue-team">
-            <span class="label-blue">青</span>
-            <span class="team-blue">${teamBlue}</span>
-          </div>`;
+      numEl.textContent = courtData.currentNum || "—";
+
+      // 現在の3体グループ（3試合、今の試合だけ強調）
+      const listEl = document.getElementById(`match-${court}-list`);
+      if (listEl) {
+        listEl.innerHTML = (courtData.matches || []).map(renderMatchRow).join("");
       }
 
-      // 次の次の対戦カード（小さく表示）
-      const next2NumEl = document.getElementById(`match-${court}-next2-num`);
-      const next2TeamsEl = document.getElementById(`match-${court}-next2-teams`);
-      if (next2NumEl && next2TeamsEl) {
-        next2NumEl.textContent = data[`afterNext${key}`] || "—";
+      // 待機（次の3体グループ）
+      const rosterEl = document.getElementById(`match-${court}-waiting-roster`);
+      if (rosterEl) {
+        const roster = courtData.waitingRoster || [];
+        rosterEl.innerHTML = roster.length ? roster.join("<br>") : "—";
+      }
 
-        const teamRed2 = data[`team${key}1Next2`] || "未設定";
-        const teamBlue2 = data[`team${key}2Next2`] || "未設定";
-        next2TeamsEl.innerHTML =
-          `<div class="team-line red-team">
-            <span class="label-red">赤</span>
-            <span class="team-red">${teamRed2}</span>
-          </div>
-          <span class="vs">VS</span>
-          <div class="team-line blue-team">
-            <span class="label-blue">青</span>
-            <span class="team-blue">${teamBlue2}</span>
-          </div>`;
+      const waitingListEl = document.getElementById(`match-${court}-waiting-list`);
+      if (waitingListEl) {
+        waitingListEl.innerHTML = (courtData.waitingMatches || []).map(renderWaitingRow).join("");
       }
     });
   } catch (err) {
@@ -73,6 +80,15 @@ window.addEventListener("DOMContentLoaded", () => {
       setTimeout(() => refreshBtn.classList.remove("is-refreshing"), 500);
     });
   }
+
+  // 各コート内のミニ更新ボタン（スマホ用：スクロールせず自分のコートだけ更新）
+  document.querySelectorAll(".refresh-btn-mini").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      fetchNextMatch();
+      btn.classList.add("is-refreshing");
+      setTimeout(() => btn.classList.remove("is-refreshing"), 500);
+    });
+  });
   
   // トーナメント表の自動リロード
   const tournamentIframe = document.getElementById('tournament-iframe');
@@ -103,61 +119,3 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 });
-
-// 次の試合情報を更新する関数
-function updateMatchInfo() {
-  fetch('match-info.json')
-    .then(response => response.json())
-    .then(data => {
-      // Aコート
-      document.getElementById('match-a').textContent = data.courtA.current || '—';
-      const teamsA = document.getElementById('match-a-teams');
-      if (data.courtA.next && data.courtA.next.red && data.courtA.next.blue) {
-        teamsA.innerHTML = `
-          <div class="teams">
-            <div class="team-line red-team">
-              <span class="label-red">赤</span>
-              <span class="team-red">${data.courtA.next.red}</span>
-            </div>
-            <div class="vs">VS</div>
-            <div class="team-line blue-team">
-              <span class="label-blue">青</span>
-              <span class="team-blue">${data.courtA.next.blue}</span>
-            </div>
-          </div>
-        `;
-      } else {
-        teamsA.textContent = '—';
-      }
-
-      // Bコート
-      document.getElementById('match-b').textContent = data.courtB.current || '—';
-      const teamsB = document.getElementById('match-b-teams');
-      if (data.courtB.next && data.courtB.next.red && data.courtB.next.blue) {
-        teamsB.innerHTML = `
-          <div class="teams">
-            <div class="team-line red-team">
-              <span class="label-red">赤</span>
-              <span class="team-red">${data.courtB.next.red}</span>
-            </div>
-            <div class="vs">VS</div>
-            <div class="team-line blue-team">
-              <span class="label-blue">青</span>
-              <span class="team-blue">${data.courtB.next.blue}</span>
-            </div>
-          </div>
-        `;
-      } else {
-        teamsB.textContent = '—';
-      }
-    })
-    .catch(error => {
-      console.error('試合情報の取得に失敗しました:', error);
-    });
-}
-
-// 初回読み込み
-updateMatchInfo();
-
-// 10秒ごとに自動更新
-setInterval(updateMatchInfo, 10000);

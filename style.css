@@ -428,17 +428,110 @@ header.nav-open .menu-toggle {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
-.next-next-label {
-  margin-top: 0.75rem;
-  padding-top: 0.6rem;
-  border-top: 1px dashed #ddd;
-  font-size: 0.8em;
+.court-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  position: relative;
+}
+
+.court-head h3 {
+  margin: 0;
+}
+
+/* コート内のミニ更新ボタン：スマホでのみ表示（スクロール不要にするため） */
+.refresh-btn-mini {
+  display: none;
+}
+
+/* 現在の3体グループ（3試合とも表示、今の試合だけ強調） */
+.match-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0.75rem 0;
+}
+
+.match-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 0.82em;
   color: var(--muted);
 }
 
-.next-next-teams {
+.match-row .match-num {
+  font-weight: bold;
+  opacity: 0.7;
+  min-width: 1.1em;
+}
+
+.match-row.is-current {
+  font-size: 1.2em;
+  font-weight: bold;
+  color: var(--text-dark);
+}
+
+.match-row.is-current .match-num {
+  opacity: 1;
+  color: var(--primary);
+}
+
+.current-names {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 2px 0 4px;
+  font-size: 0.62em;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+/* 待機（次の3体グループ） */
+.waiting-block {
+  margin-top: 0.85rem;
+  padding-top: 0.7rem;
+  border-top: 1px dashed #ddd;
+}
+
+.waiting-label {
   font-size: 0.8em;
-  opacity: 0.8;
+  font-weight: bold;
+  color: var(--muted);
+  margin: 0 0 4px;
+  letter-spacing: 0.05em;
+}
+
+.waiting-roster {
+  font-size: 0.95em;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin: 0 0 6px;
+}
+
+.waiting-match-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.waiting-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 0.72em;
+  color: var(--muted);
+}
+
+.waiting-row .match-num {
+  font-weight: bold;
+  opacity: 0.6;
+  min-width: 1.1em;
 }
 
 /* 会場マップ */
@@ -637,6 +730,15 @@ footer {
 
 .nmsize {
   font-size: 1.5em;
+}
+
+.color-legend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0.4rem 0 0;
+  font-size: 0.75em;
 }
 
 .team-red {
@@ -866,6 +968,31 @@ footer {
 
 /* スマホ対応 */
 @media (max-width: 600px) {
+  .refresh-btn-mini {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    position: absolute;
+    right: 0;
+    padding: 4px 10px;
+    border: 1px solid var(--primary);
+    background-color: #fff;
+    color: var(--primary);
+    border-radius: 999px;
+    font-weight: bold;
+    font-size: 0.72em;
+    cursor: pointer;
+  }
+
+  .refresh-btn-mini:active {
+    background-color: var(--primary);
+    color: #fff;
+  }
+
+  .refresh-btn-mini.is-refreshing svg {
+    animation: refreshSpin 0.5s linear;
+  }
+
   .opening-overlay {
     align-items: center;
     padding-top: 0;
