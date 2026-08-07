@@ -25,6 +25,16 @@ function renderWaitingRow(m) {
   </div>`;
 }
 
+function updateLastUpdated() {
+  const el = document.getElementById("last-updated");
+  if (!el) return;
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, "0");
+  const mm = String(now.getMinutes()).padStart(2, "0");
+  const ss = String(now.getSeconds()).padStart(2, "0");
+  el.textContent = `最終更新: ${hh}:${mm}:${ss}`;
+}
+
 async function fetchNextMatch() {
   try {
     const res = await fetch(API_URL, { cache: "no-store" }); // キャッシュ無効化で常に最新データ取得
@@ -64,6 +74,8 @@ async function fetchNextMatch() {
         waitingListEl.innerHTML = (courtData.waitingMatches || []).map(renderWaitingRow).join("");
       }
     });
+
+    updateLastUpdated();
   } catch (err) {
     console.error("fetch error:", err);
   }
@@ -71,7 +83,13 @@ async function fetchNextMatch() {
 
 window.addEventListener("DOMContentLoaded", () => {
   fetchNextMatch();
-  setInterval(fetchNextMatch, 3000); // 3秒ごとに自動更新
+
+  // タブ/アプリから戻ってきた時だけ自動で1回更新（常時ポーリングはしない）
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      fetchNextMatch();
+    }
+  });
 
   // 「今すぐ更新」ボタン：ページリロードせずfetchNextMatchだけ再実行
   const refreshBtn = document.getElementById("refresh-match-btn");

@@ -10,7 +10,7 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   
-  <link rel="stylesheet" href="style.css?v=20260829">
+  <link rel="stylesheet" href="style.css?v=20260832">
 </head>
 <body>
   <!-- オープニングエフェクト -->
@@ -86,16 +86,19 @@
     <section id="next-match" class="card2">
       <div class="next-match-head">
         <h2>次の試合</h2>
-        <button id="refresh-match-btn" class="refresh-btn" type="button">
-          <span class="refresh-icon">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="23 4 23 10 17 10"></polyline>
-              <polyline points="1 20 1 14 7 14"></polyline>
-              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-            </svg>
-          </span>
-          今すぐ更新
-        </button>
+        <div class="refresh-area">
+          <span class="last-updated" id="last-updated">最終更新: —</span>
+          <button id="refresh-match-btn" class="refresh-btn" type="button">
+            <span class="refresh-icon">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+              </svg>
+            </span>
+            今すぐ更新
+          </button>
+        </div>
       </div>
       <div class="courts">
         <div class="court">
@@ -335,7 +338,7 @@
   </footer>
 
   <!-- 末尾 -->
-  <script src="script.js?v=20260829"></script>
+  <script src="script.js?v=20260832"></script>
   <script src="quicknav.js?v=20260815"></script>
 </body>
 </html>

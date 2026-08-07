@@ -368,6 +368,18 @@ header.nav-open .menu-toggle {
   margin: 0;
 }
 
+.refresh-area {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.last-updated {
+  font-size: 0.78em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
 .refresh-btn {
   display: inline-flex;
   align-items: center;
