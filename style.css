@@ -484,10 +484,20 @@ header.nav-open .menu-toggle {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin: 2px 0 4px;
-  font-size: 0.62em;
-  font-weight: 600;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid #eee;
+  font-size: 0.75em;
+}
+
+.current-names .is-active {
+  font-weight: 700;
   color: var(--text-dark);
+}
+
+.current-names .is-idle {
+  font-weight: 500;
+  color: var(--muted);
 }
 
 /* 待機（次の3体グループ） */

@@ -1,18 +1,24 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbwh3lXG7IJeWDe0i93ydI2xyIkhDCezdwb4A5UamDScSTeL5-oao9b_hEFStMw6aRc_/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbwapwAF0zEssWpvw962f52Cbjl6gTDGZ1ExjqBi4bNtmkBQrXvFCpy1uq52D2xQ6x0q/exec";
 
 function renderMatchRow(m) {
-  const namesBlock = m.current
-    ? `<div class="current-names">
-        <div>${m.red.num}番 ${m.red.name}</div>
-        <div>${m.blue.num}番 ${m.blue.name}</div>
-      </div>`
-    : "";
   return `<div class="match-row${m.current ? " is-current" : ""}">
     <span class="match-num">${m.num}</span>
     <span class="team-plain">${m.red.num}番</span>
     <span class="vs">VS</span>
     <span class="team-plain">${m.blue.num}番</span>
-  </div>${namesBlock}`;
+  </div>`;
+}
+
+function renderTrioRoster(trioRoster) {
+  if (!trioRoster || trioRoster.length === 0) return "";
+  return `<div class="current-names">
+    ${trioRoster
+      .map(
+        (t) =>
+          `<div class="${t.active ? "is-active" : "is-idle"}">${t.num}番 ${t.name}</div>`
+      )
+      .join("")}
+  </div>`;
 }
 
 function renderWaitingRow(m) {
@@ -44,10 +50,11 @@ async function fetchNextMatch() {
 
       numEl.textContent = courtData.currentNum || "—";
 
-      // 現在の3体グループ（3試合、今の試合だけ強調）
+      // 現在の3体グループ（3試合、今の試合だけ強調）→ その下に3体分の機体名（今戦ってる2体は黒、残りは灰色）
       const listEl = document.getElementById(`match-${court}-list`);
       if (listEl) {
-        listEl.innerHTML = (courtData.matches || []).map(renderMatchRow).join("");
+        const matches = courtData.matches || [];
+        listEl.innerHTML = matches.map(renderMatchRow).join("") + renderTrioRoster(courtData.trioRoster);
       }
 
       // 待機（次の3体グループ）
