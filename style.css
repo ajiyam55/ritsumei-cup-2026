@@ -981,6 +981,11 @@ footer {
 
 /* スマホ対応 */
 @media (max-width: 600px) {
+  .refresh-area {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
   .refresh-btn-mini {
     display: inline-flex;
     align-items: center;
