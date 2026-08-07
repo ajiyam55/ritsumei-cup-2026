@@ -488,10 +488,6 @@ header.nav-open .menu-toggle {
   padding-top: 4px;
   border-top: 1px solid #eee;
   font-size: 0.75em;
-}
-
-.current-names .is-active,
-.current-names .is-idle {
   color: var(--muted);
 }
 

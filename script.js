@@ -9,19 +9,10 @@ function renderMatchRow(m) {
   </div>`;
 }
 
-function renderTrioRoster(trioRoster, currentMatch) {
+function renderTrioRoster(trioRoster) {
   if (!trioRoster || trioRoster.length === 0) return "";
   return `<div class="current-names">
-    ${trioRoster
-      .map((t) => {
-        let marker = "";
-        if (currentMatch) {
-          if (t.num === currentMatch.red.num) marker = "赤 ";
-          else if (t.num === currentMatch.blue.num) marker = "青 ";
-        }
-        return `<div class="${t.active ? "is-active" : "is-idle"}">${marker}${t.num}番 ${t.name}</div>`;
-      })
-      .join("")}
+    ${trioRoster.map((t) => `<div>${t.num}番 ${t.name}</div>`).join("")}
   </div>`;
 }
 
@@ -54,12 +45,11 @@ async function fetchNextMatch() {
 
       numEl.textContent = courtData.currentNum || "—";
 
-      // 現在の3体グループ（3試合、今の試合だけ強調）→ その下に3体分の機体名（今戦ってる2体は赤/青ラベル、残りは灰色）
+      // 現在の3体グループ（3試合、今の試合だけ強調）→ その下に3体分の機体名（全部灰色）
       const listEl = document.getElementById(`match-${court}-list`);
       if (listEl) {
         const matches = courtData.matches || [];
-        const currentMatch = matches.find((m) => m.current);
-        listEl.innerHTML = matches.map(renderMatchRow).join("") + renderTrioRoster(courtData.trioRoster, currentMatch);
+        listEl.innerHTML = matches.map(renderMatchRow).join("") + renderTrioRoster(courtData.trioRoster);
       }
 
       // 待機（次の3体グループ）
