@@ -490,13 +490,8 @@ header.nav-open .menu-toggle {
   font-size: 0.75em;
 }
 
-.current-names .is-active {
-  font-weight: 700;
-  color: var(--text-dark);
-}
-
+.current-names .is-active,
 .current-names .is-idle {
-  font-weight: 500;
   color: var(--muted);
 }
 
