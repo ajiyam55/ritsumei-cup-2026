@@ -601,8 +601,9 @@ header.nav-open .menu-toggle {
 }
 
 .sponsor-logos img {
-  max-width: 150px;       /* 横幅制限 */
-  max-height: 80px;       /* 高さ制限 */
+  width: 150px;           /* 表示枠の幅を統一 */
+  height: 80px;           /* 表示枠の高さを統一 */
+  box-sizing: border-box;
   object-fit: contain;    /* アスペクト比保持 */
   border-radius: 8px;
   background-color: #fff; /* 透過ロゴの背景 */
@@ -688,8 +689,8 @@ header.nav-open .menu-toggle {
 
 @media (max-width: 600px) {
   .sponsor-logos img {
-    max-width: 120px;
-    max-height: 60px;
+    width: 120px;
+    height: 60px;
   }
   
   .document-link {
