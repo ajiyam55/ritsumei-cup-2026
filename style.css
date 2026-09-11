@@ -602,7 +602,7 @@ header.nav-open .menu-toggle {
 
 .sponsor-logos img {
   width: 150px;           /* 表示枠の幅を統一 */
-  height: 80px;           /* 表示枠の高さを統一 */
+  height: 90px;           /* 表示枠の高さを統一 */
   box-sizing: border-box;
   object-fit: contain;    /* アスペクト比保持 */
   border-radius: 8px;
