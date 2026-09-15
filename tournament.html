@@ -109,6 +109,43 @@
       overflow-x: auto;
     }
 
+    .final-section {
+      margin-bottom: 22px;
+      padding: 18px;
+      background: var(--surface);
+      border: 1px solid #e4dcde;
+      border-top: 5px solid var(--winner);
+      border-radius: 12px;
+      box-shadow: 0 8px 22px rgb(75 36 40 / 9%);
+    }
+
+    .final-heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .final-heading h2 {
+      font-size: 1.3rem;
+    }
+
+    .final-heading span {
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .final-matches {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(180px, 1fr));
+      gap: 12px;
+    }
+
+    .final-matches .match::after {
+      display: none;
+    }
+
     .block {
       min-width: 0;
       padding: 18px;
@@ -137,7 +174,7 @@
 
     .rounds {
       display: grid;
-      grid-template-columns: repeat(3, minmax(104px, 1fr));
+      grid-template-columns: repeat(4, minmax(104px, 1fr));
       gap: 12px;
       min-height: 620px;
     }
@@ -172,6 +209,14 @@
     }
 
     .match::after {
+      display: none;
+    }
+
+    .team {
+      position: relative;
+    }
+
+    .round:not(:last-child) .team::after {
       content: "";
       position: absolute;
       top: 50%;
@@ -181,17 +226,13 @@
       background: var(--line);
     }
 
-    .round:last-child .match::after {
-      display: none;
+    .round:not(:last-child) .team.is-winner::after {
+      background: var(--winner);
     }
 
     .match.is-winner {
       border-color: var(--winner);
       box-shadow: 0 0 0 2px rgb(197 138 24 / 18%);
-    }
-
-    .match.is-winner::after {
-      background: var(--winner);
     }
 
     .match-number {
@@ -258,6 +299,10 @@
         overflow-x: visible;
       }
 
+      .final-matches {
+        grid-template-columns: 1fr;
+      }
+
       .block {
         min-width: 0;
       }
@@ -274,12 +319,16 @@
       }
 
       .rounds {
-        grid-template-columns: repeat(3, minmax(82px, 1fr));
+        grid-template-columns: repeat(4, minmax(82px, 1fr));
         gap: 8px;
         min-height: 560px;
       }
 
       .block {
+        padding: 12px 8px;
+      }
+
+      .final-section {
         padding: 12px 8px;
       }
 
@@ -304,20 +353,22 @@
       </div>
     </header>
 
-    <section id="bracket-board" class="bracket-board" aria-label="決勝トーナメント表"></section>
+    <section id="final-section" class="final-section" aria-labelledby="final-heading"></section>
+    <section id="bracket-board" class="bracket-board" aria-label="各ブロック決勝トーナメント"></section>
     <p class="status">出場者とスコアは現在準備中です。確定後、管理者ページから入力すると自動で反映されます。</p>
   </main>
 
   <script>
     const BLOCKS = ["A", "B", "C"];
-    const ROUND_NAMES = ["1回戦", "準々決勝", "準決勝"];
+    const ROUND_NAMES = ["1回戦", "2回戦", "準々決勝", "準決勝"];
     const SLOT_COUNT = 16;
 
     // 後でApps ScriptのJSONをここへ渡せるデータ形式にしておく。
     const tournamentData = {
       A: { matches: [] },
       B: { matches: [] },
-      C: { matches: [] }
+      C: { matches: [] },
+      finalMatches: []
     };
 
     function getMatch(block, round, matchIndex) {
@@ -372,8 +423,28 @@
       </section>`;
     }
 
+    function finalMarkup() {
+      const matches = tournamentData.finalMatches || [];
+
+      return `<div class="final-heading">
+        <h2 id="final-heading">最終決戦</h2>
+        <span>A・B・Cブロック代表の総当たり</span>
+      </div>
+      <div class="final-matches">
+        ${[0, 1, 2].map((index) => {
+          const match = matches[index] || {};
+          return `<article class="match${match.winner ? " is-winner" : ""}">
+            <span class="match-number">第${index + 1}試合</span>
+            ${teamMarkup(match.red)}
+            ${teamMarkup(match.blue)}
+          </article>`;
+        }).join("")}
+      </div>`;
+    }
+
     function renderTournament(data = tournamentData) {
       Object.assign(tournamentData, data);
+      document.getElementById("final-section").innerHTML = finalMarkup();
       document.getElementById("bracket-board").innerHTML = BLOCKS
         .map(blockMarkup)
         .join("");
