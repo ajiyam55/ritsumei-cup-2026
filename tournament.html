@@ -593,7 +593,7 @@
       const names = roundNames(bracketSize);
       return `<section class="block" aria-labelledby="block-${block}">
         <div class="block-heading">
-          <h2 id="block-${block}">${block}ブロック</h2>
+          <h2 id="block-${block}">${block}コート</h2>
           <span>${bracketSize}枠</span>
         </div>
         <div class="rounds" style="--slot-count: ${bracketSize}; --round-count: ${names.length};">
@@ -619,7 +619,7 @@
 
       return `<div class="final-heading">
         <h2 id="final-heading">最終決戦</h2>
-        <span>${isReady ? "A・B・Cブロック代表の総当たり" : "3ブロックの代表決定後に組み合わせを表示"}</span>
+        <span>${isReady ? "A・B・Cコート代表の総当たり" : "3コートの代表決定後に組み合わせを表示"}</span>
       </div>
       ${isReady ? `<div class="final-matches">
         ${[0, 1, 2].map((index) => {
