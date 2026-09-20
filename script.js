@@ -53,7 +53,10 @@ async function fetchNextMatch() {
 
       const courtData = (data.courts && data.courts[key]) || {};
 
-      numEl.textContent = courtData.currentNum || "—";
+      const currentNum = Number(courtData.currentNum);
+      numEl.textContent = Number.isFinite(currentNum)
+        ? String(Math.floor((currentNum - 1) / 3) + 1)
+        : "—";
 
       // 現在の3体グループ（3試合、今の試合だけ強調）→ その下に3体分の機体名（全部灰色）
       const listEl = document.getElementById(`match-${court}-list`);
