@@ -112,6 +112,10 @@
       border-radius: 6px;
     }
 
+    .admin-controls[hidden] {
+      display: none !important;
+    }
+
     .admin-controls label {
       display: grid;
       gap: 3px;
@@ -460,10 +464,11 @@
   <script>
     const BLOCKS = ["A", "B", "C"];
     const DEFAULT_BRACKET_SIZE = 16;
+    const TOURNAMENT_API_BASE_URL = "https://script.google.com/macros/s/AKfycbz8yesZ53V9X9tbjxEaO6x_XkO8dmWDV1SL64NX8iKM3N7oGj-EiMabufa9ZNIVciHFEg/exec";
     const TOURNAMENT_API_URLS = {
-      A: "https://script.google.com/macros/s/AKfycbynOgMTXInWVTQ7hrcF0wdwFtEEUJ2mI7q3IODTJJLjqnySpvO_yHwupbWfNCaL3GjmAw/exec",
-      B: "",
-      C: ""
+      A: TOURNAMENT_API_BASE_URL + "?mode=tournament&league=A",
+      B: TOURNAMENT_API_BASE_URL + "?mode=tournament&league=B",
+      C: TOURNAMENT_API_BASE_URL + "?mode=tournament&league=C"
     };
     const IS_ADMIN = new URLSearchParams(window.location.search).get("admin") === "1";
 
@@ -640,10 +645,18 @@
           const url = TOURNAMENT_API_URLS[block];
           if (!url) return { block, data: null };
 
-          const response = await fetch(`${url}?t=${Date.now()}`, { cache: "no-store" });
+          const requestUrl = new URL(url);
+          requestUrl.searchParams.set("t", Date.now());
+          const response = await fetch(requestUrl.toString(), { cache: "no-store" });
           if (!response.ok) throw new Error(`${block}: HTTP ${response.status}`);
 
-          const data = await response.json();
+          const responseText = await response.text();
+          let data;
+          try {
+            data = JSON.parse(responseText);
+          } catch (parseError) {
+            throw new Error(`${block}: APIがJSONを返していません（公開設定またはURLを確認）`);
+          }
           if (data.error) throw new Error(`${block}: ${data.error}`);
           return { block, data };
         }));

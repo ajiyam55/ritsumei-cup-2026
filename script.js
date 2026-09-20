@@ -1,4 +1,4 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbwl_y4xY0CW7YckukEHwuM-0tPJEKTtvvr3nX9Fv4kGuUA5n8pY4ALczoIf9yxI4WN8cA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbz8yesZ53V9X9tbjxEaO6x_XkO8dmWDV1SL64NX8iKM3N7oGj-EiMabufa9ZNIVciHFEg/exec";
 
 function renderMatchRow(m) {
   return `<div class="match-row${m.current ? " is-current" : ""}">

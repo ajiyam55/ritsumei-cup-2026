@@ -1,29 +1,42 @@
-const SHEET_NAMES = ["Aリーグ"];
+const LEAGUE_SHEETS = {
+  A: "Aリーグ",
+  B: "Bリーグ",
+  C: "Cリーグ"
+};
 const MAX_PARTICIPANTS = 32;
 const BRACKET_SIZE = 32;
 const REPRESENTATIVE_RESULT_COLUMN = 5;
 const REPRESENTATIVE_NAME_COLUMN = 6;
 const SCORE_SHEET_NAME = "FinalTournament";
-const API_BLOCK_KEY = "A";
 const ADMIN_TOKEN = "CHANGE_THIS_TOKEN";
 
-function doGet() {
+function doGet(event) {
+  const mode = event && event.parameter && event.parameter.mode;
+
+  if (mode === "tournament") {
+    return getTournamentData(event);
+  }
+
+  return getCurrentMatchData();
+}
+
+function getTournamentData(event) {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = SHEET_NAMES
-    .map(name => spreadsheet.getSheetByName(name))
-    .find(Boolean);
+  const league = String(event && event.parameter && event.parameter.league || "A").toUpperCase();
+  const sheetName = LEAGUE_SHEETS[league];
+  const sheet = sheetName ? spreadsheet.getSheetByName(sheetName) : null;
 
   if (!sheet) {
     return jsonOutput({
-      error: `Sheet not found. Expected one of: ${SHEET_NAMES.join(", ")}`
+      error: `Sheet not found for league: ${league}`
     });
   }
 
   const result = parseLeagueSheet(sheet);
   const scoreSheet = spreadsheet.getSheetByName(SCORE_SHEET_NAME);
   result.matches = scoreSheet ? parseScoreSheet(scoreSheet) : [];
-  result[API_BLOCK_KEY].matches = mergeMatches(
-    result[API_BLOCK_KEY].matches,
+  result[league].matches = mergeMatches(
+    result[league].matches,
     result.matches
   );
   const semiFinal = result.matches.find(match => match.round === 3 && match.winner);
@@ -31,6 +44,125 @@ function doGet() {
     ? (semiFinal.red.winner ? semiFinal.red : semiFinal.blue)
     : null;
   return jsonOutput(result);
+}
+
+function getCurrentMatchData() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const dataSheet = ss.getSheetByName("機体一覧");
+  const statusSheet = ss.getSheetByName("現在の試合番号");
+
+  if (!dataSheet || !statusSheet) {
+    return jsonOutput({
+      error: "Missing sheet: 機体一覧 or 現在の試合番号"
+    });
+  }
+
+  const currentA = statusSheet.getRange("B2").getValue();
+  const currentB = statusSheet.getRange("B3").getValue();
+  const currentC = statusSheet.getRange("B4").getValue();
+  const values = dataSheet.getDataRange().getValues();
+  const rows = values.slice(1);
+
+  function teamInfo(row) {
+    return row
+      ? { num: String(row[0]), name: String(row[1]) }
+      : { num: "", name: "未設定" };
+  }
+
+  function findMatch(ring, matchNumber) {
+    const found = rows.filter(row => {
+      const rowRing = String(row[3]).trim();
+      const m1 = row[4];
+      const m2 = row[5];
+      return rowRing === ring && (m1 === matchNumber || m2 === matchNumber);
+    });
+
+    found.sort((left, right) => left[0] - right[0]);
+    return { red: teamInfo(found[0]), blue: teamInfo(found[1]) };
+  }
+
+  function trioMatchNumbers(trioIndex) {
+    const base = (trioIndex - 1) * 3;
+    return [base + 1, base + 2, base + 3];
+  }
+
+  function buildCourt(ring, current) {
+    if (current === "" || current === null || current === undefined) {
+      return {
+        currentNum: "",
+        matches: [],
+        trioRoster: [],
+        waitingRoster: [],
+        waitingMatches: []
+      };
+    }
+
+    const cur = Number(current);
+    const trioIndex = Math.ceil(cur / 3);
+    const currentNumbers = trioMatchNumbers(trioIndex);
+    const nextNumbers = trioMatchNumbers(trioIndex + 1);
+    const matches = currentNumbers.map(number => {
+      const match = findMatch(ring, number);
+      return {
+        num: String(number),
+        red: match.red,
+        blue: match.blue,
+        current: number === cur
+      };
+    });
+
+    const currentMatch = matches.find(match => match.current);
+    const activeNumbers = currentMatch
+      ? [currentMatch.red.num, currentMatch.blue.num]
+      : [];
+    const trioRosterSeen = {};
+    const trioRoster = [];
+
+    matches.forEach(match => {
+      [match.red, match.blue].forEach(team => {
+        if (team.name && team.name !== "未設定" && !trioRosterSeen[team.num]) {
+          trioRosterSeen[team.num] = true;
+          trioRoster.push({
+            num: team.num,
+            name: team.name,
+            active: activeNumbers.indexOf(team.num) !== -1
+          });
+        }
+      });
+    });
+
+    const waitingMatches = nextNumbers.map(number => {
+      const match = findMatch(ring, number);
+      return { num: String(number), red: match.red, blue: match.blue };
+    });
+    const rosterSeen = {};
+    const waitingRoster = [];
+
+    waitingMatches.forEach(match => {
+      [match.red, match.blue].forEach(team => {
+        if (team.name && team.name !== "未設定" && !rosterSeen[team.num]) {
+          rosterSeen[team.num] = true;
+          waitingRoster.push(`${team.num}番 ${team.name}`);
+        }
+      });
+    });
+
+    return {
+      currentNum: String(cur),
+      matches,
+      trioRoster,
+      waitingRoster,
+      waitingMatches
+    };
+  }
+
+  return jsonOutput({
+    courts: {
+      A: buildCourt("A", currentA),
+      B: buildCourt("B", currentB),
+      C: buildCourt("C", currentC)
+    }
+  });
 }
 
 function doPost(event) {
