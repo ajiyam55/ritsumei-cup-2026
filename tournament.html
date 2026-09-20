@@ -102,11 +102,46 @@
       background: var(--winner);
     }
 
+    .admin-controls {
+      display: flex;
+      align-items: end;
+      gap: 8px;
+      padding: 8px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+    }
+
+    .admin-controls label {
+      display: grid;
+      gap: 3px;
+      color: var(--muted);
+      font-size: 0.7rem;
+    }
+
+    .admin-controls input {
+      width: 150px;
+      min-height: 30px;
+      padding: 4px 6px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+    }
+
+    .admin-controls button {
+      min-height: 30px;
+      padding: 4px 10px;
+      color: #fff;
+      background: var(--primary);
+      border: 0;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
     .bracket-board {
       display: grid;
-      grid-template-columns: repeat(3, minmax(300px, 1fr));
-      gap: 12px;
-      overflow-x: auto;
+      grid-template-columns: 1fr;
+      gap: 16px;
+      overflow-x: visible;
     }
 
     .final-section {
@@ -148,7 +183,7 @@
 
     .block {
       min-width: 0;
-      padding: 12px;
+      padding: 10px;
       background: var(--surface);
       border: 1px solid #e4dcde;
       border-top: 5px solid var(--primary);
@@ -174,15 +209,15 @@
 
     .rounds {
       display: grid;
-      grid-template-columns: repeat(4, minmax(104px, 1fr));
-      gap: 7px;
-      min-height: 540px;
+      grid-template-columns: repeat(var(--round-count), minmax(0, 1fr));
+      gap: 4px;
+      min-height: 680px;
     }
 
     .round {
       min-width: 0;
       position: relative;
-    }
+      column-gap: 18px;
 
     .round-label {
       display: block;
@@ -194,7 +229,7 @@
 
     .round-grid {
       display: grid;
-      grid-template-rows: repeat(16, 1fr);
+      grid-template-rows: repeat(var(--slot-count), 1fr);
       height: calc(100% - 22px);
       margin-top: 8px;
     }
@@ -202,13 +237,37 @@
     .match {
       position: relative;
       align-self: center;
-      border: 1px solid var(--line);
-      border-radius: 6px;
+      justify-self: center;
+      width: 78%;
+      border: 2px solid #222;
+      border-radius: 0;
       background: #fff;
       overflow: visible;
     }
 
     .match::after {
+      content: "";
+      position: absolute;
+      top: 25%;
+      right: -20px;
+      width: 20px;
+      height: 50%;
+      border-right: 3px solid var(--line);
+      pointer-events: none;
+    }
+
+    .round:not(:first-child) .match::before {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: -20px;
+      width: 20px;
+      height: 3px;
+      background: var(--line);
+      pointer-events: none;
+    }
+
+    .round:last-child .match::after {
       display: none;
     }
 
@@ -220,13 +279,21 @@
       content: "";
       position: absolute;
       top: 50%;
-      right: -8px;
-      width: 7px;
-      height: 1px;
+      right: -20px;
+      width: 20px;
+      height: 3px;
       background: var(--line);
     }
 
     .round:not(:last-child) .team.is-winner::after {
+      background: var(--winner);
+    }
+
+    .match.is-winner::after {
+      border-right-color: var(--winner);
+    }
+
+    .match.is-winner::before {
       background: var(--winner);
     }
 
@@ -235,11 +302,28 @@
       box-shadow: 0 0 0 2px rgb(197 138 24 / 18%);
     }
 
+    .match.is-bye {
+      border: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .match.is-bye .team {
+      border: 2px solid #222;
+      border-radius: 12px;
+      background: #fff;
+    }
+
+    /* Score stays on the right side of each participant row. */
+    .team {
+      position: relative;
+    }
+
     .match-number {
       display: block;
-      padding: 3px 5px;
+      padding: 2px 4px;
       color: var(--muted);
-      background: #f7f4f3;
+      background: #fff;
       border-bottom: 1px solid var(--line);
       font-size: 0.6rem;
     }
@@ -254,9 +338,9 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      min-height: 27px;
+      min-height: 30px;
       gap: 4px;
-      padding: 4px 5px;
+      padding: 3px 4px;
       font-size: 0.64rem;
     }
 
@@ -272,28 +356,28 @@
 
     .team-score {
       flex: 0 0 auto;
+      min-width: 22px;
+      margin: 0;
+      padding: 0;
       color: var(--muted);
+      background: transparent;
+      text-align: right;
       font-weight: bold;
+    }
+
+    .score-input {
+      width: 30px;
+      min-height: 22px;
+      padding: 1px 2px;
+      color: var(--ink);
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      text-align: center;
     }
 
     .team.is-winner {
       color: #875d06;
       font-weight: bold;
-    }
-
-    .status {
-      margin-top: 18px;
-      padding: 12px 14px;
-      color: var(--muted);
-      background: #faf7f6;
-      border-left: 3px solid var(--winner);
-      font-size: 0.82rem;
-    }
-
-    .status.is-error {
-      color: #8d2525;
-      background: #fff1f1;
-      border-left-color: #c44b4b;
     }
 
     @media (max-width: 900px) {
@@ -331,9 +415,8 @@
       }
 
       .rounds {
-        grid-template-columns: repeat(4, minmax(82px, 1fr));
-        gap: 8px;
-        min-height: 500px;
+        grid-template-columns: repeat(var(--round-count), minmax(0, 1fr));
+        min-height: 620px;
       }
 
       .block {
@@ -363,6 +446,10 @@
         <span><i></i>未確定</span>
         <span class="is-winner"><i></i>勝ち上がり</span>
       </div>
+      <div id="admin-controls" class="admin-controls" hidden>
+        <label>管理トークン <input id="admin-token" type="password" autocomplete="off"></label>
+        <button id="save-scores" type="button">スコアを保存</button>
+      </div>
     </header>
 
     <section id="final-section" class="final-section" aria-labelledby="final-heading"></section>
@@ -372,14 +459,13 @@
 
   <script>
     const BLOCKS = ["A", "B", "C"];
-    const ROUND_NAMES = ["1回戦", "2回戦", "準々決勝", "準決勝"];
-    const SLOT_COUNT = 16;
-    const ROUND_OFFSETS = [0, 8, 12, 14];
+    const DEFAULT_BRACKET_SIZE = 16;
     const TOURNAMENT_API_URLS = {
-      A: "https://script.google.com/macros/s/AKfycbzKNWG9J2TMjidRCFLLG__8z3ddePmlw4dhfpQLANkKYFGt7fHzCii1Dri2ZdUDA3xP3Q/exec",
+      A: "https://script.google.com/macros/s/AKfycbynOgMTXInWVTQ7hrcF0wdwFtEEUJ2mI7q3IODTJJLjqnySpvO_yHwupbWfNCaL3GjmAw/exec",
       B: "",
       C: ""
     };
+    const IS_ADMIN = new URLSearchParams(window.location.search).get("admin") === "1";
 
     // 後でApps ScriptのJSONをここへ渡せるデータ形式にしておく。
     const tournamentData = {
@@ -395,45 +481,73 @@
       ) || {};
     }
 
-    function teamMarkup(team) {
-      const name = team && team.name ? team.name : "出場者未定";
+    function teamMarkup(team, block, round, matchIndex, color) {
+      const name = team && team.name && team.name !== "出場者未定" ? team.name : "";
       const number = team && team.number ? `${team.number}番 ` : "";
-      const score = team && team.score !== undefined && team.score !== "" ? team.score : "-";
+      if (!name && !number) {
+        return "";
+      }
+      const score = team && team.score !== undefined && team.score !== "" ? team.score : "";
       const winner = team && team.winner ? " is-winner" : "";
+      const scoreMarkup = IS_ADMIN
+        ? `<input class="score-input" type="number" min="0" inputmode="numeric" data-block="${block}" data-round="${round}" data-match="${matchIndex}" data-color="${color}" value="${score}">`
+        : `<span class="team-score">${score || "-"}</span>`;
 
       return `<div class="team${winner}">
         <span class="team-name">${number}${name}</span>
-        <span class="team-score">${score}</span>
+        ${scoreMarkup}
       </div>`;
     }
 
-    function matchMarkup(block, round, matchIndex) {
+    function roundNames(bracketSize) {
+      const names = ["1回戦", "2回戦", "準々決勝", "準決勝", "決勝"];
+      return names.slice(0, Math.log2(bracketSize));
+    }
+
+    function roundOffset(bracketSize, round) {
+      let offset = 0;
+      for (let index = 0; index < round; index += 1) {
+        offset += bracketSize / (2 ** (index + 1));
+      }
+      return offset;
+    }
+
+    function matchMarkup(block, round, matchIndex, bracketSize) {
       const match = getMatch(block, round, matchIndex);
       const winnerClass = match.winner ? " is-winner" : "";
-      const rowStart = (matchIndex - 1) * (2 ** (round + 1)) + 1;
       const rowSpan = 2 ** (round + 1);
-      const totalMatchNumber = ROUND_OFFSETS[round] + matchIndex;
+      const rowStart = (matchIndex - 1) * rowSpan + 1;
+      const totalMatchNumber = roundOffset(bracketSize, round) + matchIndex;
+      const hasRed = Boolean(match.red && (match.red.name || match.red.number));
+      const hasBlue = Boolean(match.blue && (match.blue.name || match.blue.number));
+      if (round === 0 && !hasRed && !hasBlue) return "";
+      const isBye = round === 0 && (!hasRed || !hasBlue);
+      const matchNumberMarkup = !isBye
+        ? `<span class="match-number">第${totalMatchNumber}試合<span>スコア</span></span>`
+        : "";
 
-      return `<article class="match${winnerClass}" style="grid-row: ${rowStart} / span ${rowSpan};">
-        <span class="match-number">第${totalMatchNumber}試合<span>スコア</span></span>
-        ${teamMarkup(match.red)}
-        ${teamMarkup(match.blue)}
+      return `<article class="match${winnerClass}${isBye ? " is-bye" : ""}" style="grid-row: ${rowStart} / span ${rowSpan};">
+        ${matchNumberMarkup}
+        ${teamMarkup(match.red, block, round, matchIndex, "red")}
+        ${teamMarkup(match.blue, block, round, matchIndex, "blue")}
       </article>`;
     }
 
     function blockMarkup(block) {
+      const bracketSize = tournamentData[block].bracketSize || DEFAULT_BRACKET_SIZE;
+      const names = roundNames(bracketSize);
       return `<section class="block" aria-labelledby="block-${block}">
         <div class="block-heading">
           <h2 id="block-${block}">${block}ブロック</h2>
-          <span>最大16枠</span>
+          <span>${bracketSize}枠</span>
         </div>
-        <div class="rounds">
-          ${ROUND_NAMES.map((name, round) => `
+        <div class="rounds" style="--slot-count: ${bracketSize}; --round-count: ${names.length};">
+          ${names.map((name, round) => `
             <div class="round">
               <span class="round-label">${name}</span>
               <div class="round-grid">
-                ${Array.from({ length: SLOT_COUNT / (2 ** (round + 1)) }, (_, index) =>
-                  matchMarkup(block, round, index + 1)
+                ${Array.from({ length: bracketSize / (2 ** (round + 1)) }, (_, index) =>
+                  matchMarkup(block, round, index + 1, bracketSize)
                 ).join("")}
               </div>
             </div>
@@ -474,32 +588,29 @@
 
     renderTournament();
 
+    if (IS_ADMIN) {
+      document.getElementById("admin-controls").hidden = false;
+    }
+
     function firstQualifier(data) {
-      if (data && Array.isArray(data.blocks)) {
-        return data.blocks.find(block => block.winnerConfirmed && block.winner?.name)?.winner || null;
-      }
-
-      if (data && Array.isArray(data.qualifiers) && data.qualifiers[0]) {
-        return data.qualifiers[0];
-      }
-
-      return null;
+      return data && data.qualifier && data.qualifier.name
+        ? data.qualifier
+        : null;
     }
 
     function blockPayload(data, block) {
-      if (data && Array.isArray(data.matches) && data.matches.length) {
-        return { matches: data.matches };
-      }
-
       const sourceBlock = data && data[block];
       if (sourceBlock && Array.isArray(sourceBlock.matches)) {
-        return sourceBlock;
+        return {
+          ...sourceBlock,
+          bracketSize: data.bracketSize || DEFAULT_BRACKET_SIZE
+        };
       }
 
       const firstBlock = data && Array.isArray(data.blocks) ? data.blocks[0] : null;
       return firstBlock && Array.isArray(firstBlock.matches)
-        ? { matches: firstBlock.matches }
-        : { matches: [] };
+        ? { matches: firstBlock.matches, bracketSize: data.bracketSize || DEFAULT_BRACKET_SIZE }
+        : { matches: [], bracketSize: DEFAULT_BRACKET_SIZE };
     }
 
     function finalMatchesFromQualifiers() {
@@ -548,7 +659,9 @@
         tournamentData.finalMatches = finalMatchesFromQualifiers();
         renderTournament(tournamentData);
         const connected = results.filter(result => result.data).length;
-        const qualified = BLOCKS.filter(block => tournamentData[block].qualifier?.name).length;
+        const qualified = BLOCKS.filter(block => {
+          return tournamentData[block].qualifier && tournamentData[block].qualifier.name;
+        }).length;
         status.textContent = qualified === 3
           ? "A・B・Cの代表が確定し、最終戦を表示しています。"
           : `${connected}/3ブロックを取得中。代表確定: ${qualified}/3。`;
@@ -560,8 +673,52 @@
       }
     }
 
+    async function saveAdminScores() {
+      const url = TOURNAMENT_API_URLS.A;
+      const token = document.getElementById("admin-token").value;
+      const rows = tournamentData.A.matches.map(match => {
+        const redInput = document.querySelector(
+          `[data-block="A"][data-round="${match.round}"][data-match="${match.match}"][data-color="red"]`
+        );
+        const blueInput = document.querySelector(
+          `[data-block="A"][data-round="${match.round}"][data-match="${match.match}"][data-color="blue"]`
+        );
+
+        return {
+          round: match.round,
+          match: match.match,
+          redNumber: match.red ? match.red.number || "" : "",
+          redName: match.red ? match.red.name || "" : "",
+          redScore: redInput ? redInput.value : "",
+          blueNumber: match.blue ? match.blue.number || "" : "",
+          blueName: match.blue ? match.blue.name || "" : "",
+          blueScore: blueInput ? blueInput.value : ""
+        };
+      });
+
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ token, matches: rows })
+        });
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+        document.getElementById("api-status").textContent = `${data.saved}試合を保存しました。`;
+        await loadTournamentData();
+      } catch (error) {
+        document.getElementById("api-status").textContent = `保存に失敗しました: ${error.message}`;
+        document.getElementById("api-status").classList.add("is-error");
+      }
+    }
+
     loadTournamentData();
     setInterval(loadTournamentData, 10000);
+
+    const saveScoresButton = document.getElementById("save-scores");
+    if (saveScoresButton) {
+      saveScoresButton.addEventListener("click", saveAdminScores);
+    }
   </script>
 </body>
 </html>
