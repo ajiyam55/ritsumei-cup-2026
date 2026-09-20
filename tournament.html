@@ -104,14 +104,14 @@
 
     .bracket-board {
       display: grid;
-      grid-template-columns: repeat(3, minmax(360px, 1fr));
-      gap: 18px;
+      grid-template-columns: repeat(3, minmax(300px, 1fr));
+      gap: 12px;
       overflow-x: auto;
     }
 
     .final-section {
-      margin-bottom: 22px;
-      padding: 18px;
+      margin-bottom: 16px;
+      padding: 14px;
       background: var(--surface);
       border: 1px solid #e4dcde;
       border-top: 5px solid var(--winner);
@@ -139,7 +139,7 @@
     .final-matches {
       display: grid;
       grid-template-columns: repeat(3, minmax(180px, 1fr));
-      gap: 12px;
+      gap: 8px;
     }
 
     .final-matches .match::after {
@@ -148,7 +148,7 @@
 
     .block {
       min-width: 0;
-      padding: 18px;
+      padding: 12px;
       background: var(--surface);
       border: 1px solid #e4dcde;
       border-top: 5px solid var(--primary);
@@ -160,11 +160,11 @@
       display: flex;
       align-items: baseline;
       justify-content: space-between;
-      margin-bottom: 16px;
+      margin-bottom: 10px;
     }
 
     .block-heading h2 {
-      font-size: 1.3rem;
+      font-size: 1.1rem;
     }
 
     .block-heading span {
@@ -175,8 +175,8 @@
     .rounds {
       display: grid;
       grid-template-columns: repeat(4, minmax(104px, 1fr));
-      gap: 12px;
-      min-height: 620px;
+      gap: 7px;
+      min-height: 540px;
     }
 
     .round {
@@ -187,7 +187,7 @@
     .round-label {
       display: block;
       color: var(--muted);
-      font-size: 0.68rem;
+      font-size: 0.62rem;
       font-weight: bold;
       text-align: center;
     }
@@ -220,8 +220,8 @@
       content: "";
       position: absolute;
       top: 50%;
-      right: -13px;
-      width: 12px;
+      right: -8px;
+      width: 7px;
       height: 1px;
       background: var(--line);
     }
@@ -237,21 +237,27 @@
 
     .match-number {
       display: block;
-      padding: 4px 7px;
+      padding: 3px 5px;
       color: var(--muted);
       background: #f7f4f3;
       border-bottom: 1px solid var(--line);
-      font-size: 0.66rem;
+      font-size: 0.6rem;
+    }
+
+    .match-number span {
+      float: right;
+      color: var(--muted);
+      font-weight: normal;
     }
 
     .team {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      min-height: 31px;
+      min-height: 27px;
       gap: 4px;
-      padding: 5px 7px;
-      font-size: 0.72rem;
+      padding: 4px 5px;
+      font-size: 0.64rem;
     }
 
     .team + .team {
@@ -282,6 +288,12 @@
       background: #faf7f6;
       border-left: 3px solid var(--winner);
       font-size: 0.82rem;
+    }
+
+    .status.is-error {
+      color: #8d2525;
+      background: #fff1f1;
+      border-left-color: #c44b4b;
     }
 
     @media (max-width: 900px) {
@@ -321,7 +333,7 @@
       .rounds {
         grid-template-columns: repeat(4, minmax(82px, 1fr));
         gap: 8px;
-        min-height: 560px;
+        min-height: 500px;
       }
 
       .block {
@@ -355,13 +367,19 @@
 
     <section id="final-section" class="final-section" aria-labelledby="final-heading"></section>
     <section id="bracket-board" class="bracket-board" aria-label="各ブロック決勝トーナメント"></section>
-    <p class="status">出場者とスコアは現在準備中です。確定後、管理者ページから入力すると自動で反映されます。</p>
+    <p id="api-status" class="status">トーナメントデータを読み込み中です。</p>
   </main>
 
   <script>
     const BLOCKS = ["A", "B", "C"];
     const ROUND_NAMES = ["1回戦", "2回戦", "準々決勝", "準決勝"];
     const SLOT_COUNT = 16;
+    const ROUND_OFFSETS = [0, 8, 12, 14];
+    const TOURNAMENT_API_URLS = {
+      A: "https://script.google.com/macros/s/AKfycbzKNWG9J2TMjidRCFLLG__8z3ddePmlw4dhfpQLANkKYFGt7fHzCii1Dri2ZdUDA3xP3Q/exec",
+      B: "",
+      C: ""
+    };
 
     // 後でApps ScriptのJSONをここへ渡せるデータ形式にしておく。
     const tournamentData = {
@@ -380,7 +398,7 @@
     function teamMarkup(team) {
       const name = team && team.name ? team.name : "出場者未定";
       const number = team && team.number ? `${team.number}番 ` : "";
-      const score = team && team.score !== undefined ? team.score : "";
+      const score = team && team.score !== undefined && team.score !== "" ? team.score : "-";
       const winner = team && team.winner ? " is-winner" : "";
 
       return `<div class="team${winner}">
@@ -394,9 +412,10 @@
       const winnerClass = match.winner ? " is-winner" : "";
       const rowStart = (matchIndex - 1) * (2 ** (round + 1)) + 1;
       const rowSpan = 2 ** (round + 1);
+      const totalMatchNumber = ROUND_OFFSETS[round] + matchIndex;
 
       return `<article class="match${winnerClass}" style="grid-row: ${rowStart} / span ${rowSpan};">
-        <span class="match-number">第${matchIndex}試合</span>
+        <span class="match-number">第${totalMatchNumber}試合<span>スコア</span></span>
         ${teamMarkup(match.red)}
         ${teamMarkup(match.blue)}
       </article>`;
@@ -425,21 +444,24 @@
 
     function finalMarkup() {
       const matches = tournamentData.finalMatches || [];
+      const isReady = matches.length === 3 && matches.every(match =>
+        match.red && match.red.name && match.blue && match.blue.name
+      );
 
       return `<div class="final-heading">
         <h2 id="final-heading">最終決戦</h2>
-        <span>A・B・Cブロック代表の総当たり</span>
+        <span>${isReady ? "A・B・Cブロック代表の総当たり" : "3ブロックの代表決定後に組み合わせを表示"}</span>
       </div>
-      <div class="final-matches">
+      ${isReady ? `<div class="final-matches">
         ${[0, 1, 2].map((index) => {
           const match = matches[index] || {};
           return `<article class="match${match.winner ? " is-winner" : ""}">
-            <span class="match-number">第${index + 1}試合</span>
+            <span class="match-number">最終第${index + 1}試合<span>スコア</span></span>
             ${teamMarkup(match.red)}
             ${teamMarkup(match.blue)}
           </article>`;
         }).join("")}
-      </div>`;
+      </div>` : `<p class="final-pending">A・B・Cの代表が全員決まると、ここに最終3試合を表示します。</p>`}`;
     }
 
     function renderTournament(data = tournamentData) {
@@ -451,6 +473,95 @@
     }
 
     renderTournament();
+
+    function firstQualifier(data) {
+      if (data && Array.isArray(data.blocks)) {
+        return data.blocks.find(block => block.winnerConfirmed && block.winner?.name)?.winner || null;
+      }
+
+      if (data && Array.isArray(data.qualifiers) && data.qualifiers[0]) {
+        return data.qualifiers[0];
+      }
+
+      return null;
+    }
+
+    function blockPayload(data, block) {
+      if (data && Array.isArray(data.matches) && data.matches.length) {
+        return { matches: data.matches };
+      }
+
+      const sourceBlock = data && data[block];
+      if (sourceBlock && Array.isArray(sourceBlock.matches)) {
+        return sourceBlock;
+      }
+
+      const firstBlock = data && Array.isArray(data.blocks) ? data.blocks[0] : null;
+      return firstBlock && Array.isArray(firstBlock.matches)
+        ? { matches: firstBlock.matches }
+        : { matches: [] };
+    }
+
+    function finalMatchesFromQualifiers() {
+      const qualifiers = BLOCKS.map(block => tournamentData[block].qualifier);
+      if (qualifiers.some(qualifier => !qualifier || !qualifier.name)) {
+        return [];
+      }
+
+      return [
+        [qualifiers[0], qualifiers[1]],
+        [qualifiers[1], qualifiers[2]],
+        [qualifiers[2], qualifiers[0]]
+      ].map((teams, index) => ({
+        round: null,
+        match: index + 1,
+        red: teams[0],
+        blue: teams[1],
+        winner: false
+      }));
+    }
+
+    async function loadTournamentData() {
+      const status = document.getElementById("api-status");
+
+      try {
+        const results = await Promise.all(BLOCKS.map(async block => {
+          const url = TOURNAMENT_API_URLS[block];
+          if (!url) return { block, data: null };
+
+          const response = await fetch(`${url}?t=${Date.now()}`, { cache: "no-store" });
+          if (!response.ok) throw new Error(`${block}: HTTP ${response.status}`);
+
+          const data = await response.json();
+          if (data.error) throw new Error(`${block}: ${data.error}`);
+          return { block, data };
+        }));
+
+        results.forEach(({ block, data }) => {
+          if (!data) return;
+          tournamentData[block] = {
+            ...blockPayload(data, block),
+            qualifier: firstQualifier(data)
+          };
+        });
+
+        tournamentData.finalMatches = finalMatchesFromQualifiers();
+        renderTournament(tournamentData);
+        const connected = results.filter(result => result.data).length;
+        const qualified = BLOCKS.filter(block => tournamentData[block].qualifier?.name).length;
+        status.textContent = qualified === 3
+          ? "A・B・Cの代表が確定し、最終戦を表示しています。"
+          : `${connected}/3ブロックを取得中。代表確定: ${qualified}/3。`;
+        status.classList.remove("is-error");
+      } catch (error) {
+        console.error("Tournament API error:", error);
+        status.textContent = `データ取得エラー: ${error.message}`;
+        status.classList.add("is-error");
+      }
+    }
+
+    loadTournamentData();
+    setInterval(loadTournamentData, 10000);
   </script>
 </body>
 </html>
