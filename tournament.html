@@ -141,6 +141,21 @@
       cursor: pointer;
     }
 
+    .status {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    .status.is-error {
+      color: #b3261e;
+    }
+
+    .final-pending {
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
     .bracket-board {
       display: grid;
       grid-template-columns: 1fr;
@@ -181,6 +196,11 @@
       gap: 8px;
     }
 
+    .final-matches .match {
+      width: 100%;
+    }
+
+    .final-matches .match::before,
     .final-matches .match::after {
       display: none;
     }
@@ -211,20 +231,23 @@
       font-size: 0.78rem;
     }
 
+    /* ---- トーナメント本体 ---- */
+
     .rounds {
+      --link: 28px;   /* 回戦と回戦の間(線を引く幅) */
+      --row-h: 44px;  /* 1枠あたりの高さ */
       display: grid;
       grid-template-columns: repeat(var(--round-count), minmax(0, 1fr));
-      gap: 4px;
-      min-height: 680px;
+      column-gap: var(--link);
     }
 
     .round {
       min-width: 0;
-      position: relative;
-      column-gap: 18px;
+    }
 
     .round-label {
       display: block;
+      height: 14px;
       color: var(--muted);
       font-size: 0.62rem;
       font-weight: bold;
@@ -233,94 +256,84 @@
 
     .round-grid {
       display: grid;
-      grid-template-rows: repeat(var(--slot-count), 1fr);
-      height: calc(100% - 22px);
+      grid-template-rows: repeat(var(--slot-count), var(--row-h));
       margin-top: 8px;
+    }
+
+    /* 1試合ぶんの場所。線はここに描く */
+    .slot {
+      position: relative;
+      display: flex;
+      align-items: center;
+      min-width: 0;
     }
 
     .match {
       position: relative;
-      align-self: center;
-      justify-self: center;
-      width: 78%;
+      width: 100%;
       border: 2px solid #222;
-      border-radius: 0;
       background: #fff;
-      overflow: visible;
     }
 
-    .match::after {
+    /* 右へ伸びる横線(勝ち上がり) */
+    .round:not(:last-child) .slot::after {
       content: "";
       position: absolute;
-      top: 25%;
-      right: -20px;
-      width: 20px;
-      height: 50%;
-      border-right: 3px solid var(--line);
-      pointer-events: none;
+      top: 50%;
+      left: 100%;
+      width: calc(var(--link) / 2);
+      height: 3px;
+      margin-top: -1.5px;
+      background: var(--line);
     }
 
+    /* 2試合をつなぐ縦線。上の試合は下へ、下の試合は上へ */
+    .round:not(:last-child) .slot::before {
+      content: "";
+      position: absolute;
+      left: calc(100% + var(--link) / 2 - 1.5px);
+      width: 3px;
+      background: var(--line);
+    }
+
+    .slot.is-upper::before {
+      top: 50%;
+      height: 50%;
+    }
+
+    .slot.is-lower::before {
+      top: 0;
+      height: 50%;
+    }
+
+    /* 次の試合の左側に入る横線 */
     .round:not(:first-child) .match::before {
       content: "";
       position: absolute;
       top: 50%;
-      left: -20px;
-      width: 20px;
+      left: calc(var(--link) / -2);
+      width: calc(var(--link) / 2);
       height: 3px;
-      background: var(--line);
-      pointer-events: none;
-    }
-
-    .round:last-child .match::after {
-      display: none;
-    }
-
-    .team {
-      position: relative;
-    }
-
-    .round:not(:last-child) .team::after {
-      content: "";
-      position: absolute;
-      top: 50%;
-      right: -20px;
-      width: 20px;
-      height: 3px;
+      margin-top: -1.5px;
       background: var(--line);
     }
 
-    .round:not(:last-child) .team.is-winner::after {
+    /* 勝ち上がった線は金色 */
+    .slot.is-advanced::before,
+    .slot.is-advanced::after,
+    .match.is-fed::before {
       background: var(--winner);
-    }
-
-    .match.is-winner::after {
-      border-right-color: var(--winner);
-    }
-
-    .match.is-winner::before {
-      background: var(--winner);
-    }
-
-    .match.is-winner {
-      border-color: var(--winner);
-      box-shadow: 0 0 0 2px rgb(197 138 24 / 18%);
     }
 
     .match.is-bye {
       border: 0;
       background: transparent;
-      box-shadow: none;
     }
 
     .match.is-bye .team {
       border: 2px solid #222;
       border-radius: 12px;
       background: #fff;
-    }
-
-    /* Score stays on the right side of each participant row. */
-    .team {
-      position: relative;
     }
 
     .match-number {
@@ -339,6 +352,7 @@
     }
 
     .team {
+      position: relative;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -353,6 +367,7 @@
     }
 
     .team-name {
+      min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -361,10 +376,7 @@
     .team-score {
       flex: 0 0 auto;
       min-width: 22px;
-      margin: 0;
-      padding: 0;
       color: var(--muted);
-      background: transparent;
       text-align: right;
       font-weight: bold;
     }
@@ -379,9 +391,18 @@
       text-align: center;
     }
 
+    /* 勝った側の選手だけを黄色で囲む */
     .team.is-winner {
       color: #875d06;
       font-weight: bold;
+      background: #fff8e6;
+      outline: 3px solid var(--winner);
+      outline-offset: -3px;
+    }
+
+    /* まだ相手が決まっていない枠 */
+    .team.is-empty {
+      color: #b5aeb2;
     }
 
     @media (max-width: 900px) {
@@ -396,15 +417,20 @@
 
       .bracket-board {
         grid-template-columns: 1fr;
-        overflow-x: visible;
       }
 
       .final-matches {
         grid-template-columns: 1fr;
       }
 
+      /* 狭い画面では横にスクロールして読めるようにする */
       .block {
-        min-width: 0;
+        overflow-x: auto;
+      }
+
+      .rounds {
+        --link: 20px;
+        min-width: calc(var(--round-count) * 128px);
       }
     }
 
@@ -416,11 +442,6 @@
       .legend {
         flex-wrap: wrap;
         white-space: normal;
-      }
-
-      .rounds {
-        grid-template-columns: repeat(var(--round-count), minmax(0, 1fr));
-        min-height: 620px;
       }
 
       .block {
@@ -464,7 +485,7 @@
   <script>
     const BLOCKS = ["A", "B", "C"];
     const DEFAULT_BRACKET_SIZE = 16;
-    const TOURNAMENT_API_BASE_URL = "https://script.google.com/macros/s/AKfycbz8yesZ53V9X9tbjxEaO6x_XkO8dmWDV1SL64NX8iKM3N7oGj-EiMabufa9ZNIVciHFEg/exec";
+    const TOURNAMENT_API_BASE_URL = "https://script.google.com/macros/s/AKfycbyAPO3XOKBB4nJb_1x47j4HxGDsLG0aD4DLI7HcaVbeKDf4rbKJpco4aD0X7i7QgMlE9g/exec";
     const TOURNAMENT_API_URLS = {
       A: TOURNAMENT_API_BASE_URL + "?mode=tournament&league=A",
       B: TOURNAMENT_API_BASE_URL + "?mode=tournament&league=B",
@@ -472,7 +493,6 @@
     };
     const IS_ADMIN = new URLSearchParams(window.location.search).get("admin") === "1";
 
-    // 後でApps ScriptのJSONをここへ渡せるデータ形式にしておく。
     const tournamentData = {
       A: { matches: [] },
       B: { matches: [] },
@@ -486,17 +506,22 @@
       ) || {};
     }
 
-    function teamMarkup(team, block, round, matchIndex, color) {
+    // block を渡したときだけ管理者用のスコア入力欄を出す(最終戦では出さない)
+    function teamMarkup(team, block, round, matchIndex, color, placeholder) {
       const name = team && team.name && team.name !== "出場者未定" ? team.name : "";
       const number = team && team.number ? `${team.number}番 ` : "";
+
       if (!name && !number) {
-        return "";
+        return placeholder
+          ? `<div class="team is-empty"><span class="team-name">未定</span></div>`
+          : "";
       }
+
       const score = team && team.score !== undefined && team.score !== "" ? team.score : "";
       const winner = team && team.winner ? " is-winner" : "";
-      const scoreMarkup = IS_ADMIN
+      const scoreMarkup = IS_ADMIN && block
         ? `<input class="score-input" type="number" min="0" inputmode="numeric" data-block="${block}" data-round="${round}" data-match="${matchIndex}" data-color="${color}" value="${score}">`
-        : `<span class="team-score">${score || "-"}</span>`;
+        : `<span class="team-score">${score === "" ? "-" : score}</span>`;
 
       return `<div class="team${winner}">
         <span class="team-name">${number}${name}</span>
@@ -504,9 +529,13 @@
       </div>`;
     }
 
+    // 決勝から数えて名前を付ける(枠数が変わっても正しい名前になる)
     function roundNames(bracketSize) {
-      const names = ["1回戦", "2回戦", "準々決勝", "準決勝", "決勝"];
-      return names.slice(0, Math.log2(bracketSize));
+      const total = Math.log2(bracketSize);
+      const fromEnd = ["決勝", "準決勝", "準々決勝"];
+      return Array.from({ length: total }, (_, round) =>
+        fromEnd[total - 1 - round] || `${round + 1}回戦`
+      );
     }
 
     function roundOffset(bracketSize, round) {
@@ -519,23 +548,44 @@
 
     function matchMarkup(block, round, matchIndex, bracketSize) {
       const match = getMatch(block, round, matchIndex);
-      const winnerClass = match.winner ? " is-winner" : "";
+      const hasRed = Boolean(match.red && (match.red.name || match.red.number));
+      const hasBlue = Boolean(match.blue && (match.blue.name || match.blue.number));
+
+      // 1回戦で誰もいない枠は描かない。2回戦以降は「未定」の枠を常に出す
+      if (round === 0 && !hasRed && !hasBlue) return "";
+
       const rowSpan = 2 ** (round + 1);
       const rowStart = (matchIndex - 1) * rowSpan + 1;
       const totalMatchNumber = roundOffset(bracketSize, round) + matchIndex;
-      const hasRed = Boolean(match.red && (match.red.name || match.red.number));
-      const hasBlue = Boolean(match.blue && (match.blue.name || match.blue.number));
-      if (round === 0 && !hasRed && !hasBlue) return "";
       const isBye = round === 0 && (!hasRed || !hasBlue);
+      const advanced = Boolean(match.winner || match.bye);
+      const feederAdvanced = round > 0 && [
+        getMatch(block, round - 1, matchIndex * 2 - 1),
+        getMatch(block, round - 1, matchIndex * 2)
+      ].some(feeder => feeder.winner || feeder.bye);
+
+      const slotClass = [
+        "slot",
+        matchIndex % 2 === 1 ? "is-upper" : "is-lower",
+        advanced ? "is-advanced" : ""
+      ].join(" ");
+      const matchClass = [
+        "match",
+        isBye ? "is-bye" : "",
+        feederAdvanced ? "is-fed" : ""
+      ].join(" ");
       const matchNumberMarkup = !isBye
         ? `<span class="match-number">第${totalMatchNumber}試合<span>スコア</span></span>`
         : "";
+      const placeholder = round > 0;
 
-      return `<article class="match${winnerClass}${isBye ? " is-bye" : ""}" style="grid-row: ${rowStart} / span ${rowSpan};">
-        ${matchNumberMarkup}
-        ${teamMarkup(match.red, block, round, matchIndex, "red")}
-        ${teamMarkup(match.blue, block, round, matchIndex, "blue")}
-      </article>`;
+      return `<div class="${slotClass}" style="grid-row: ${rowStart} / span ${rowSpan};">
+        <article class="${matchClass}">
+          ${matchNumberMarkup}
+          ${teamMarkup(match.red, block, round, matchIndex, "red", placeholder)}
+          ${teamMarkup(match.blue, block, round, matchIndex, "blue", placeholder)}
+        </article>
+      </div>`;
     }
 
     function blockMarkup(block) {
@@ -574,7 +624,7 @@
       ${isReady ? `<div class="final-matches">
         ${[0, 1, 2].map((index) => {
           const match = matches[index] || {};
-          return `<article class="match${match.winner ? " is-winner" : ""}">
+          return `<article class="match">
             <span class="match-number">最終第${index + 1}試合<span>スコア</span></span>
             ${teamMarkup(match.red)}
             ${teamMarkup(match.blue)}
@@ -686,47 +736,62 @@
       }
     }
 
+    // A・B・C それぞれを、自分のリーグ名を付けて保存する
     async function saveAdminScores() {
-      const url = TOURNAMENT_API_URLS.A;
+      const status = document.getElementById("api-status");
       const token = document.getElementById("admin-token").value;
-      const rows = tournamentData.A.matches.map(match => {
-        const redInput = document.querySelector(
-          `[data-block="A"][data-round="${match.round}"][data-match="${match.match}"][data-color="red"]`
-        );
-        const blueInput = document.querySelector(
-          `[data-block="A"][data-round="${match.round}"][data-match="${match.match}"][data-color="blue"]`
-        );
-
-        return {
-          round: match.round,
-          match: match.match,
-          redNumber: match.red ? match.red.number || "" : "",
-          redName: match.red ? match.red.name || "" : "",
-          redScore: redInput ? redInput.value : "",
-          blueNumber: match.blue ? match.blue.number || "" : "",
-          blueName: match.blue ? match.blue.name || "" : "",
-          blueScore: blueInput ? blueInput.value : ""
-        };
-      });
+      let saved = 0;
 
       try {
-        const response = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({ token, matches: rows })
-        });
-        const data = await response.json();
-        if (data.error) throw new Error(data.error);
-        document.getElementById("api-status").textContent = `${data.saved}試合を保存しました。`;
+        for (const block of BLOCKS) {
+          const source = tournamentData[block].matches;
+          // 読み込めていないリーグは保存しない(空のデータで上書きしないため)
+          if (!source.length) continue;
+
+          const rows = source
+            .filter(match => match.red && match.red.name && match.blue && match.blue.name)
+            .map(match => {
+              const selector = color =>
+                `[data-block="${block}"][data-round="${match.round}"][data-match="${match.match}"][data-color="${color}"]`;
+              const redInput = document.querySelector(selector("red"));
+              const blueInput = document.querySelector(selector("blue"));
+
+              return {
+                round: match.round,
+                match: match.match,
+                redNumber: match.red.number || "",
+                redName: match.red.name || "",
+                redScore: redInput ? redInput.value : "",
+                blueNumber: match.blue.number || "",
+                blueName: match.blue.name || "",
+                blueScore: blueInput ? blueInput.value : ""
+              };
+            });
+
+          const response = await fetch(TOURNAMENT_API_BASE_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({ token, league: block, matches: rows })
+          });
+          const data = await response.json();
+          if (data.error) throw new Error(`${block}: ${data.error}`);
+          saved += data.saved;
+        }
+
+        status.textContent = `${saved}試合を保存しました。`;
+        status.classList.remove("is-error");
         await loadTournamentData();
       } catch (error) {
-        document.getElementById("api-status").textContent = `保存に失敗しました: ${error.message}`;
-        document.getElementById("api-status").classList.add("is-error");
+        status.textContent = `保存に失敗しました: ${error.message}`;
+        status.classList.add("is-error");
       }
     }
 
     loadTournamentData();
-    setInterval(loadTournamentData, 10000);
+    // 管理画面では入力中のスコアが消えないよう、自動更新を止める
+    setInterval(() => {
+      if (!IS_ADMIN) loadTournamentData();
+    }, 10000);
 
     const saveScoresButton = document.getElementById("save-scores");
     if (saveScoresButton) {
