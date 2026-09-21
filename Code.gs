@@ -8,7 +8,10 @@ const BRACKET_SIZE = 32;
 const REPRESENTATIVE_RESULT_COLUMN = 5;
 const REPRESENTATIVE_NAME_COLUMN = 6;
 const SCORE_SHEET_NAME = "FinalTournament";
+// 管理画面のパスワード。必ず推測されにくいものに変更してください。
 const ADMIN_TOKEN = "RRST";
+// 閲覧者が多いので、同じリーグの結果は少しの間キャッシュして返す(秒)
+const CACHE_SECONDS = 20;
 
 // スコア保存シートの列。league 列を追加して、A/B/C を別々に管理する。
 const SCORE_HEADERS = [
@@ -25,6 +28,10 @@ function doGet(event) {
     return getTournamentData(event);
   }
 
+  if (mode === "final") {
+    return getFinalData();
+  }
+
   return getCurrentMatchData();
 }
 
@@ -32,16 +39,83 @@ function normalizeLeague(value) {
   return String(value || "A").trim().toUpperCase();
 }
 
-function getTournamentData(event) {
-  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-  const league = normalizeLeague(event && event.parameter && event.parameter.league);
-  const sheetName = LEAGUE_SHEETS[league];
-  const sheet = sheetName ? spreadsheet.getSheetByName(sheetName) : null;
+function cacheKey(league) {
+  return `tournament_${league}`;
+}
 
+function putCache(league, payload) {
+  try {
+    const text = JSON.stringify(payload);
+    // CacheService は 1 キー 100KB まで
+    if (text.length < 90000) {
+      CacheService.getScriptCache().put(cacheKey(league), text, CACHE_SECONDS);
+    }
+  } catch (ignore) { /* キャッシュできなくても動く */ }
+}
+
+// ---------------------------------------------------------------
+// 最終決戦(A・B・Cの代表3人の総当たり)のスコアと、三すくみのときの手動順位
+//   FinalTournament シートに league = FINAL / PODIUM として保存する
+//   FINAL : round=0, match=1..3 がスコア
+//   PODIUM: round=順位(1〜3), redNumber/redName=その順位の選手
+// ---------------------------------------------------------------
+
+const FINAL_LEAGUES = ["FINAL", "PODIUM"];
+
+function buildFinalPayload(spreadsheet) {
+  const sheet = spreadsheet.getSheetByName(SCORE_SHEET_NAME);
+  const rows = sheet ? readScoreRows(sheet) : [];
+
+  return {
+    generatedAt: Date.now(),
+    rows: rows
+      .filter(row => row.league === "FINAL")
+      .map(row => ({
+        match: row.match,
+        redNumber: row.redNumber,
+        redName: row.redName,
+        redScore: row.redScore,
+        blueNumber: row.blueNumber,
+        blueName: row.blueName,
+        blueScore: row.blueScore
+      })),
+    podium: rows
+      .filter(row => row.league === "PODIUM")
+      .map(row => ({ rank: row.round, number: row.redNumber, name: row.redName }))
+  };
+}
+
+function getFinalData() {
+  const cached = CacheService.getScriptCache().get(cacheKey("FINAL"));
+  if (cached) {
+    return ContentService.createTextOutput(cached).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  const payload = buildFinalPayload(SpreadsheetApp.getActiveSpreadsheet());
+  putCache("FINAL", payload);
+  return jsonOutput(payload);
+}
+
+function getTournamentData(event) {
+  const league = normalizeLeague(event && event.parameter && event.parameter.league);
+  if (!LEAGUE_SHEETS[league]) {
+    return jsonOutput({ error: `Sheet not found for league: ${league}` });
+  }
+
+  const cached = CacheService.getScriptCache().get(cacheKey(league));
+  if (cached) {
+    return ContentService.createTextOutput(cached).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  const payload = buildTournamentPayload(SpreadsheetApp.getActiveSpreadsheet(), league);
+  if (!payload.error) putCache(league, payload);
+  return jsonOutput(payload);
+}
+
+function buildTournamentPayload(spreadsheet, league) {
+  const sheet = spreadsheet.getSheetByName(LEAGUE_SHEETS[league]);
   if (!sheet) {
-    return jsonOutput({
-      error: `Sheet not found for league: ${league}`
-    });
+    return { error: `Sheet not found for league: ${league}` };
   }
 
   // 1. リーグシートから組み合わせ(1回戦)を作る
@@ -54,12 +128,11 @@ function getTournamentData(event) {
     : [];
 
   // 3. スコアを反映して、勝者を次の試合へ自動で進める
-  const matches = applyScores(result.matches, scoreRows, result.bracketSize);
-
-  result.matches = matches;
-  result[league] = { matches };
-  result.qualifier = findQualifier(matches, result.bracketSize);
-  return jsonOutput(result);
+  result.league = league;
+  result.matches = applyScores(result.matches, scoreRows, result.bracketSize);
+  result.qualifier = findQualifier(result.matches, result.bracketSize);
+  result.generatedAt = Date.now();
+  return result;
 }
 
 // ---------------------------------------------------------------
@@ -99,7 +172,13 @@ function applyScores(baseMatches, scoreRows, bracketSize) {
         const hasBoth = Boolean(match.red && match.blue);
         let advancing = "";
 
-        if (hasBoth) {
+        const hasPending = Boolean(
+          (match.red && match.red.pending) || (match.blue && match.blue.pending)
+        );
+
+        if (hasBoth && hasPending) {
+          // 代表がまだ決まっていないブロックがある試合は、勝敗を付けない
+        } else if (hasBoth) {
           const row = scoreRows.find(item =>
             item.round === match.round && item.match === match.match
           );
@@ -123,6 +202,7 @@ function applyScores(baseMatches, scoreRows, bracketSize) {
           // 1回戦で相手がいない = 不戦勝。自動で次へ進める
           match.bye = true;
           advancing = match.red ? "red" : "blue";
+          if (!match[advancing].pending) match[advancing].winner = true;
         }
 
         if (advancing && round < totalRounds - 1) {
@@ -130,6 +210,18 @@ function applyScores(baseMatches, scoreRows, bracketSize) {
           const slot = match.match % 2 === 1 ? "red" : "blue";
           if (next) next[slot] = advanceTeam(match[advancing]);
         }
+      });
+  }
+
+  // 試合番号: 不戦勝(1回戦で相手なし)は数えず、1回戦から順に連番にする
+  let counter = 0;
+  for (let round = 0; round < totalRounds; round += 1) {
+    matches
+      .filter(match => match.round === round)
+      .sort((left, right) => left.match - right.match)
+      .forEach(match => {
+        const isBye = round === 0 && !(match.red && match.blue);
+        match.number = isBye ? null : (counter += 1);
       });
   }
 
@@ -277,19 +369,27 @@ function getCurrentMatchData() {
 
 function doPost(event) {
   const lock = LockService.getScriptLock();
+  let locked = false;
 
   try {
-    lock.waitLock(10000);
-
     const body = JSON.parse(event.postData.contents);
     if (body.token !== ADMIN_TOKEN) {
       return jsonOutput({ error: "Unauthorized" });
     }
 
+    // ログイン時のパスワード確認だけ
+    if (body.action === "verify") {
+      return jsonOutput({ ok: true });
+    }
+
     const league = normalizeLeague(body.league);
-    if (!LEAGUE_SHEETS[league]) {
+    const isFinalData = FINAL_LEAGUES.indexOf(league) !== -1;
+    if (!isFinalData && !LEAGUE_SHEETS[league]) {
       return jsonOutput({ error: `Unknown league: ${league}` });
     }
+
+    lock.waitLock(10000);
+    locked = true;
 
     const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = spreadsheet.getSheetByName(SCORE_SHEET_NAME) ||
@@ -297,11 +397,25 @@ function doPost(event) {
     const matches = Array.isArray(body.matches) ? body.matches : [];
 
     writeScoreSheet(sheet, league, matches);
-    return jsonOutput({ ok: true, league, saved: matches.length });
+    SpreadsheetApp.flush();
+
+    if (isFinalData) {
+      const finalPayload = buildFinalPayload(spreadsheet);
+      CacheService.getScriptCache().remove(cacheKey("FINAL"));
+      putCache("FINAL", finalPayload);
+      return jsonOutput({ ok: true, league, saved: matches.length, data: finalPayload });
+    }
+
+    // 保存直後の最新データを返し、閲覧側のキャッシュも入れ替える
+    const payload = buildTournamentPayload(spreadsheet, league);
+    CacheService.getScriptCache().remove(cacheKey(league));
+    if (!payload.error) putCache(league, payload);
+
+    return jsonOutput({ ok: true, league, saved: matches.length, data: payload });
   } catch (error) {
     return jsonOutput({ error: error.message });
   } finally {
-    if (lock.hasLock()) lock.releaseLock();
+    if (locked) lock.releaseLock();
   }
 }
 
@@ -396,7 +510,7 @@ function parseLeagueSheet(sheet) {
     const blockCell = row.find(value => isBlockHeader(value));
     if (!blockCell) return;
 
-    const blockNumber = Number(blockCell.match(/\d+/)[0]);
+    const blockNumber = Number(normalizeText(blockCell).match(/第(\d+)ブロック/)[1]);
     const representativeRowIndex = findRepresentativeRow(values, rowIndex, blockNumber);
     const participantEnd = representativeRowIndex >= 0
       ? representativeRowIndex
@@ -419,54 +533,59 @@ function parseLeagueSheet(sheet) {
       name: `第${blockNumber}ブロック`,
       participants,
       winnerCandidate,
-      winner: winnerConfirmed ? winnerCandidate : null,
       winnerConfirmed
     });
   });
 
-  blocks.forEach(block => {
-    const blockKey = String.fromCharCode(64 + block.id);
-    const matches = [];
+  // 枠数・シードは「代表が取れた人数」ではなく「ブロック数」で決める。
+  // 代表が未定のブロックも枠は確保し(pending)、後から決まっても位置がずれない。
+  const blockById = {};
+  blocks.forEach(block => { blockById[block.id] = block; });
+  const blockCount = blocks.reduce((max, block) => Math.max(max, block.id), 0);
+  const entrants = [];
+  const pendingBlocks = [];
 
-    for (let index = 0; index < MAX_PARTICIPANTS; index += 2) {
-      matches.push({
-        round: 0,
-        match: index / 2 + 1,
-        red: block.participants[index] || null,
-        blue: block.participants[index + 1] || null,
-        winner: false
+  for (let id = 1; id <= blockCount; id += 1) {
+    const block = blockById[id];
+    if (block && block.winnerCandidate && block.winnerCandidate.name) {
+      entrants.push({ ...block.winnerCandidate, seed: id });
+    } else {
+      pendingBlocks.push(id);
+      entrants.push({
+        number: "",
+        seed: id,
+        name: `第${id}ブロック代表(未定)`,
+        wins: "",
+        pending: true
       });
     }
+  }
 
-    block.key = blockKey;
-    block.matches = matches;
-  });
-
-  const leagueWinners = blocks
-    .map(block => block.winnerCandidate
-      ? { ...block.winnerCandidate, seed: block.id }
-      : null
-    )
-    .filter(winner => winner && winner.name)
-    .slice(0, MAX_PARTICIPANTS);
-  const bracketSize = nextBracketSize(leagueWinners.length);
+  const limited = entrants.slice(0, MAX_PARTICIPANTS);
+  const bracketSize = nextBracketSize(limited.length);
 
   return {
     sourceSheet: sheet.getName(),
-    blocks,
-    blockCount: blocks.length,
-    blockWinners: leagueWinners,
-    qualifiers: leagueWinners,
-    entryCount: leagueWinners.length,
+    // 確認用: どのブロックから代表が取れているか
+    blocks: blocks.map(block => ({
+      id: block.id,
+      name: block.name,
+      representative: block.winnerCandidate ? block.winnerCandidate.name : "",
+      confirmed: block.winnerConfirmed
+    })),
+    blockCount,
+    pendingBlocks,
+    entryCount: limited.length - pendingBlocks.length,
     bracketSize,
-    // 1回戦の組み合わせ。スコア反映・勝ち上がりは getTournamentData で行う
-    matches: buildBracketMatches(seedEntrants(leagueWinners, bracketSize), bracketSize),
+    // 1回戦の組み合わせ。スコア反映・勝ち上がりは buildTournamentPayload で行う
+    matches: buildBracketMatches(seedEntrants(limited, bracketSize), bracketSize),
     qualifier: null
   };
 }
 
 function representativeFromRow(row, blockNumber) {
-  const labelExists = row.some(value => value.includes(`第${blockNumber}ブロック代表`));
+  const label = `第${blockNumber}ブロック代表`;
+  const labelExists = row.some(value => normalizeText(value).includes(label));
   if (!labelExists) return { name: "", confirmed: false };
 
   const name = (row[REPRESENTATIVE_NAME_COLUMN] || "").trim();
@@ -520,10 +639,17 @@ function seedEntrants(entrants, bracketSize) {
   return slots;
 }
 
+// 全角数字・全角スペースなどの揺れを吸収する(「第１３ ブロック」も認識できる)
+function normalizeText(value) {
+  return String(value === undefined || value === null ? "" : value)
+    .normalize("NFKC")
+    .replace(/\s+/g, "");
+}
+
 function findRepresentativeRow(values, startIndex, blockNumber) {
   const label = `第${blockNumber}ブロック代表`;
   for (let rowIndex = startIndex + 1; rowIndex < values.length; rowIndex += 1) {
-    if (values[rowIndex].some(value => value.includes(label))) return rowIndex;
+    if (values[rowIndex].some(value => normalizeText(value).includes(label))) return rowIndex;
     if (rowIndex > startIndex + 1 && values[rowIndex].some(value => isBlockHeader(value))) break;
   }
   return -1;
@@ -537,11 +663,12 @@ function findNextBlockRow(values, startIndex) {
 }
 
 function isBlockHeader(value) {
-  return /第\s*\d+\s*ブロック/.test(value) && !value.includes("代表");
+  const text = normalizeText(value);
+  return /第\d+ブロック/.test(text) && !text.includes("代表");
 }
 
 function isConfirmed(value) {
-  const normalized = String(value).trim();
+  const normalized = normalizeText(value);
   return ["確定", "確定済", "TRUE", "true", "○"].includes(normalized) ||
     normalized.includes("残り0試合");
 }

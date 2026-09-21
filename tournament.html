@@ -226,9 +226,124 @@
       font-size: 1.1rem;
     }
 
-    .block-heading span {
+    .block-heading {
+      align-items: center;
+      gap: 8px;
+    }
+
+    .block-tools {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .updated {
       color: var(--muted);
-      font-size: 0.78rem;
+      font-size: 0.75rem;
+      white-space: nowrap;
+    }
+
+    .refresh-button {
+      min-height: 30px;
+      padding: 4px 14px;
+      color: #fff;
+      background: var(--primary);
+      border: 0;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .refresh-button:hover:not(:disabled) {
+      background: var(--primary-light);
+    }
+
+    .refresh-button:disabled {
+      opacity: 0.6;
+      cursor: progress;
+    }
+
+    .block-note {
+      margin: -4px 0 8px;
+      color: var(--muted);
+      font-size: 0.75rem;
+    }
+
+    .block-note.is-error,
+    .status.is-error {
+      color: #b3261e;
+    }
+
+    .status {
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    .admin-controls > span {
+      color: var(--muted);
+      font-size: 0.75rem;
+    }
+
+    /* 管理者ログイン: 入力するまで画面全体を隠す */
+    .login {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: #f4f0ee;
+    }
+
+    .login[hidden] {
+      display: none;
+    }
+
+    .login-box {
+      display: grid;
+      gap: 14px;
+      width: min(340px, 100%);
+      padding: 24px;
+      background: #fff;
+      border: 1px solid #e4dcde;
+      border-top: 5px solid var(--primary);
+      border-radius: 12px;
+      box-shadow: 0 8px 22px rgb(75 36 40 / 9%);
+    }
+
+    .login-box label {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    .login-box input {
+      min-height: 40px;
+      padding: 6px 10px;
+      color: var(--ink);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      font-size: 1rem;
+    }
+
+    .login-box button {
+      min-height: 40px;
+      color: #fff;
+      background: var(--primary);
+      border: 0;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .login-error {
+      min-height: 1.2em;
+      color: #b3261e;
+      font-size: 0.8rem;
     }
 
     /* ---- トーナメント本体 ---- */
@@ -269,10 +384,20 @@
     }
 
     .match {
+      --head-h: 0px; /* 「第N試合」の見出しの高さぶん(線の位置合わせ用) */
       position: relative;
       width: 100%;
       border: 2px solid #222;
       background: #fff;
+    }
+
+    .match.has-number {
+      --head-h: 18px;
+    }
+
+    /* 見出しぶん上にずらして、線が2選手の境目から出るようにする */
+    .rounds .match {
+      margin-top: calc(var(--head-h) * -1);
     }
 
     /* 右へ伸びる横線(勝ち上がり) */
@@ -310,8 +435,8 @@
     .round:not(:first-child) .match::before {
       content: "";
       position: absolute;
-      top: 50%;
-      left: calc(var(--link) / -2);
+      top: calc(50% + var(--head-h) / 2);
+      left: calc(var(--link) / -2 - 2px);
       width: calc(var(--link) / 2);
       height: 3px;
       margin-top: -1.5px;
@@ -319,9 +444,10 @@
     }
 
     /* 勝ち上がった線は金色 */
-    .slot.is-advanced::before,
-    .slot.is-advanced::after,
-    .match.is-fed::before {
+    /* 上の通常ルールより詳しく書かないと色が負けてしまう */
+    .round:not(:last-child) .slot.is-advanced::before,
+    .round:not(:last-child) .slot.is-advanced::after,
+    .round:not(:first-child) .match.is-fed::before {
       background: var(--winner);
     }
 
@@ -336,9 +462,20 @@
       background: #fff;
     }
 
+    /* シード(不戦勝)の選手も黄色で囲む */
+    .match.is-bye .team.is-winner {
+      border-color: var(--winner);
+      background: #fff8e6;
+      outline: none;
+    }
+
     .match-number {
-      display: block;
-      padding: 2px 4px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-sizing: border-box;
+      height: 18px;
+      padding: 0 4px;
       color: var(--muted);
       background: #fff;
       border-bottom: 1px solid var(--line);
@@ -346,7 +483,6 @@
     }
 
     .match-number span {
-      float: right;
       color: var(--muted);
       font-weight: normal;
     }
@@ -405,7 +541,175 @@
       color: #b5aeb2;
     }
 
+    /* 長い名前をタップ(PCはカーソルを載せる)したときに全文を出す */
+    .name-tip {
+      position: fixed;
+      z-index: 200;
+      max-width: min(320px, 90vw);
+      padding: 6px 10px;
+      color: #fff;
+      background: #242124;
+      border-radius: 6px;
+      box-shadow: 0 4px 12px rgb(0 0 0 / 25%);
+      font-size: 0.8rem;
+      line-height: 1.4;
+      word-break: break-all;
+      pointer-events: none;
+    }
+
+    .name-tip[hidden] {
+      display: none;
+    }
+
+    /* 表彰 */
+    .podium-section {
+      margin-bottom: 16px;
+      padding: 14px;
+      background: var(--surface);
+      border: 1px solid #e4dcde;
+      border-top: 5px solid var(--winner);
+      border-radius: 12px;
+      box-shadow: 0 8px 22px rgb(75 36 40 / 9%);
+    }
+
+    .podium-section[hidden] {
+      display: none;
+    }
+
+    .podium-heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .podium-heading h2 {
+      font-size: 1.3rem;
+    }
+
+    .podium-heading span {
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .podium {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      list-style: none;
+    }
+
+    .podium-item {
+      position: relative;
+      display: grid;
+      gap: 6px;
+      overflow: hidden;
+      padding: 12px;
+      border: 2px solid var(--medal-edge);
+      border-radius: 10px;
+      background: var(--medal-face);
+      color: var(--medal-ink);
+    }
+
+    .podium-item.rank-1 {
+      --medal-face: linear-gradient(145deg, #fff6c2 0%, #f8d64e 28%, #e0a814 55%, #fbe27a 78%, #d99a0b 100%);
+      --medal-edge: #b07d00;
+      --medal-ink: #4a3000;
+    }
+
+    .podium-item.rank-2 {
+      --medal-face: linear-gradient(145deg, #ffffff 0%, #dfe4ea 30%, #b4bcc6 58%, #eef1f4 80%, #a3acb7 100%);
+      --medal-edge: #8b95a1;
+      --medal-ink: #2b3138;
+    }
+
+    .podium-item.rank-3 {
+      --medal-face: linear-gradient(145deg, #fbdcbc 0%, #e0a672 30%, #c47a3a 58%, #eab98a 80%, #a9642a 100%);
+      --medal-edge: #8f5320;
+      --medal-ink: #3b1f0a;
+    }
+
+    .podium-rank {
+      font-size: 0.8rem;
+      font-weight: bold;
+    }
+
+    .podium-name {
+      font-size: 1.05rem;
+      font-weight: bold;
+      overflow-wrap: anywhere;
+    }
+
+    .podium-item.rank-1 .podium-name {
+      font-size: 1.25rem;
+    }
+
+    /* 1位だけ、表示されたときに一度だけ光が横切る */
+    @media (prefers-reduced-motion: no-preference) {
+      .podium-item.rank-1::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(105deg, transparent 35%, rgb(255 255 255 / 75%) 50%, transparent 65%);
+        transform: translateX(-120%);
+        animation: podium-shine 1.4s ease-out 0.4s 1 forwards;
+        pointer-events: none;
+      }
+    }
+
+    @keyframes podium-shine {
+      to { transform: translateX(120%); }
+    }
+
+    /* 三すくみのときの手動設定 */
+    .tie-box {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+      padding: 10px;
+      background: #faf7f6;
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      font-size: 0.85rem;
+    }
+
+    .tie-state {
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .tie-state.is-error {
+      color: #b3261e;
+    }
+
+    .tie-selects {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .tie-selects label {
+      display: grid;
+      gap: 3px;
+      color: var(--muted);
+      font-size: 0.75rem;
+    }
+
+    .tie-selects select {
+      min-height: 32px;
+      padding: 4px 6px;
+      color: var(--ink);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: #fff;
+    }
+
     @media (max-width: 900px) {
+      .podium {
+        grid-template-columns: 1fr;
+      }
+
       body {
         padding: 72px 14px 24px;
       }
@@ -471,34 +775,88 @@
         <span><i></i>未確定</span>
         <span class="is-winner"><i></i>勝ち上がり</span>
       </div>
+      <button id="refresh-all" class="refresh-button" type="button">すべて更新</button>
       <div id="admin-controls" class="admin-controls" hidden>
-        <label>管理トークン <input id="admin-token" type="password" autocomplete="off"></label>
-        <button id="save-scores" type="button">スコアを保存</button>
+        <span>スコアは入力すると自動で保存されます</span>
+        <button id="logout" type="button">ログアウト</button>
       </div>
     </header>
 
+    <section id="podium-section" class="podium-section" aria-labelledby="podium-heading" hidden></section>
     <section id="final-section" class="final-section" aria-labelledby="final-heading"></section>
     <section id="bracket-board" class="bracket-board" aria-label="各ブロック決勝トーナメント"></section>
     <p id="api-status" class="status">トーナメントデータを読み込み中です。</p>
   </main>
 
+  <div id="name-tip" class="name-tip" role="tooltip" hidden></div>
+
+  <div id="login" class="login" hidden>
+    <form id="login-form" class="login-box">
+      <h2>管理者ログイン</h2>
+      <label>パスワード
+        <input id="login-password" type="password" autocomplete="current-password" required>
+      </label>
+      <button id="login-button" type="submit">ログイン</button>
+      <p id="login-error" class="login-error" role="alert"></p>
+    </form>
+  </div>
+
   <script>
     const BLOCKS = ["A", "B", "C"];
     const DEFAULT_BRACKET_SIZE = 16;
-    const TOURNAMENT_API_BASE_URL = "https://script.google.com/macros/s/AKfycbyAPO3XOKBB4nJb_1x47j4HxGDsLG0aD4DLI7HcaVbeKDf4rbKJpco4aD0X7i7QgMlE9g/exec";
-    const TOURNAMENT_API_URLS = {
-      A: TOURNAMENT_API_BASE_URL + "?mode=tournament&league=A",
-      B: TOURNAMENT_API_BASE_URL + "?mode=tournament&league=B",
-      C: TOURNAMENT_API_BASE_URL + "?mode=tournament&league=C"
-    };
-    const IS_ADMIN = new URLSearchParams(window.location.search).get("admin") === "1";
+    const TOURNAMENT_API_BASE_URL = "https://script.google.com/macros/s/AKfycbxvILecly2-0USLwyEVnumxpNwqb8HvDDR_LBzvmUmJXoNEJOR95eusY7q05yJNtGyfSg/exec";
+    const WANT_ADMIN = new URLSearchParams(window.location.search).get("admin") === "1";
+    const TOKEN_KEY = "rrst_admin_token";
+
+    // ログイン済みのときだけ値が入る。入力欄・自動保存は isAdmin() のときだけ有効
+    let adminToken = "RRST";
+    const isAdmin = () => WANT_ADMIN && Boolean(adminToken);
+
+    function newBlockState() {
+      return {
+        matches: [],
+        bracketSize: DEFAULT_BRACKET_SIZE,
+        qualifier: null,
+        updatedAt: null,
+        pendingBlocks: [],
+        blockCount: 0,
+        loading: false,
+        error: ""
+      };
+    }
 
     const tournamentData = {
-      A: { matches: [] },
-      B: { matches: [] },
-      C: { matches: [] },
+      A: newBlockState(),
+      B: newBlockState(),
+      C: newBlockState(),
+      // 最終決戦のスコアと、三すくみのときの手動順位(サーバーから取得)
+      final: { rows: [], podium: [], updatedAt: null, loading: false, error: "" },
       finalMatches: []
     };
+
+    // 三すくみの順位: 選んだ内容はすぐ画面に残し(draft)、あとでまとめて保存する。
+    // 保存の返事が来る前に描き直されても、選んだ順位が「未設定」に戻らないようにする。
+    const podiumDraft = { 1: "", 2: "", 3: "", dirty: false, state: "", error: false };
+
+    // ---------------------------------------------------------------
+    // 表示
+    // ---------------------------------------------------------------
+
+    function escapeHtml(value) {
+      return String(value === undefined || value === null ? "" : value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function formatTime(milliseconds) {
+      return new Date(milliseconds).toLocaleTimeString("ja-JP", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit"
+      });
+    }
 
     function getMatch(block, round, matchIndex) {
       return tournamentData[block].matches.find(
@@ -506,25 +864,32 @@
       ) || {};
     }
 
-    // block を渡したときだけ管理者用のスコア入力欄を出す(最終戦では出さない)
-    function teamMarkup(team, block, round, matchIndex, color, placeholder) {
+    // options.block があり、両方の選手が決まっている試合だけ管理者用のスコア入力欄を出す
+    function teamMarkup(team, options = {}) {
       const name = team && team.name && team.name !== "出場者未定" ? team.name : "";
       const number = team && team.number ? `${team.number}番 ` : "";
 
       if (!name && !number) {
-        return placeholder
+        return options.placeholder
           ? `<div class="team is-empty"><span class="team-name">未定</span></div>`
           : "";
       }
 
+      // 代表がまだ決まっていないブロック
+      if (team.pending) {
+        return `<div class="team is-empty"><span class="team-name">${escapeHtml(name)}</span></div>`;
+      }
+
       const score = team && team.score !== undefined && team.score !== "" ? team.score : "";
       const winner = team && team.winner ? " is-winner" : "";
-      const scoreMarkup = IS_ADMIN && block
-        ? `<input class="score-input" type="number" min="0" inputmode="numeric" data-block="${block}" data-round="${round}" data-match="${matchIndex}" data-color="${color}" value="${score}">`
-        : `<span class="team-score">${score === "" ? "-" : score}</span>`;
+      const scoreMarkup = options.bye
+        ? ""
+        : isAdmin() && options.editable
+        ? `<input class="score-input" type="number" min="0" inputmode="numeric" data-block="${options.block}" data-round="${options.round}" data-match="${options.matchIndex}" data-color="${options.color}" value="${escapeHtml(score)}">`
+        : `<span class="team-score">${score === "" ? "-" : escapeHtml(score)}</span>`;
 
       return `<div class="team${winner}">
-        <span class="team-name">${number}${name}</span>
+        <span class="team-name">${escapeHtml(number + name)}</span>
         ${scoreMarkup}
       </div>`;
     }
@@ -538,15 +903,7 @@
       );
     }
 
-    function roundOffset(bracketSize, round) {
-      let offset = 0;
-      for (let index = 0; index < round; index += 1) {
-        offset += bracketSize / (2 ** (index + 1));
-      }
-      return offset;
-    }
-
-    function matchMarkup(block, round, matchIndex, bracketSize) {
+    function matchMarkup(block, round, matchIndex) {
       const match = getMatch(block, round, matchIndex);
       const hasRed = Boolean(match.red && (match.red.name || match.red.number));
       const hasBlue = Boolean(match.blue && (match.blue.name || match.blue.number));
@@ -556,13 +913,15 @@
 
       const rowSpan = 2 ** (round + 1);
       const rowStart = (matchIndex - 1) * rowSpan + 1;
-      const totalMatchNumber = roundOffset(bracketSize, round) + matchIndex;
       const isBye = round === 0 && (!hasRed || !hasBlue);
       const advanced = Boolean(match.winner || match.bye);
       const feederAdvanced = round > 0 && [
         getMatch(block, round - 1, matchIndex * 2 - 1),
         getMatch(block, round - 1, matchIndex * 2)
       ].some(feeder => feeder.winner || feeder.bye);
+      const editable = Boolean(
+        hasRed && hasBlue && !match.red.pending && !match.blue.pending
+      );
 
       const slotClass = [
         "slot",
@@ -572,37 +931,59 @@
       const matchClass = [
         "match",
         isBye ? "is-bye" : "",
+        !isBye && match.number ? "has-number" : "",
         feederAdvanced ? "is-fed" : ""
       ].join(" ");
-      const matchNumberMarkup = !isBye
-        ? `<span class="match-number">第${totalMatchNumber}試合<span>スコア</span></span>`
+      // 試合番号はサーバー側で「不戦勝を除いて1回戦から順番」に付けている
+      const matchNumberMarkup = !isBye && match.number
+        ? `<span class="match-number">第${match.number}試合<span>スコア</span></span>`
         : "";
       const placeholder = round > 0;
 
       return `<div class="${slotClass}" style="grid-row: ${rowStart} / span ${rowSpan};">
         <article class="${matchClass}">
           ${matchNumberMarkup}
-          ${teamMarkup(match.red, block, round, matchIndex, "red", placeholder)}
-          ${teamMarkup(match.blue, block, round, matchIndex, "blue", placeholder)}
+          ${teamMarkup(match.red, { block, round, matchIndex, color: "red", placeholder, editable, bye: isBye })}
+          ${teamMarkup(match.blue, { block, round, matchIndex, color: "blue", placeholder, editable, bye: isBye })}
         </article>
       </div>`;
     }
 
+    function blockNoteMarkup(data) {
+      if (data.error) {
+        return `<p class="block-note is-error">取得できませんでした: ${escapeHtml(data.error)}</p>`;
+      }
+      // 管理者にだけ、代表が取れていないブロックを知らせる(原因調べ用)
+      if (isAdmin() && data.pendingBlocks.length) {
+        const list = data.pendingBlocks.map(id => `第${id}`).join("・");
+        const got = data.blockCount - data.pendingBlocks.length;
+        return `<p class="block-note">代表を取得できているブロック: ${got}/${data.blockCount}(未取得: ${list}ブロック)</p>`;
+      }
+      return "";
+    }
+
     function blockMarkup(block) {
-      const bracketSize = tournamentData[block].bracketSize || DEFAULT_BRACKET_SIZE;
+      const data = tournamentData[block];
+      const bracketSize = data.bracketSize || DEFAULT_BRACKET_SIZE;
       const names = roundNames(bracketSize);
-      return `<section class="block" aria-labelledby="block-${block}">
+      const updated = data.updatedAt ? `更新 ${formatTime(data.updatedAt)}` : "未取得";
+
+      return `<section class="block" data-block="${block}" aria-labelledby="block-${block}">
         <div class="block-heading">
-          <h2 id="block-${block}">${block}コート</h2>
-          <span>${bracketSize}枠</span>
+          <h2 id="block-${block}">${block}ブロック</h2>
+          <div class="block-tools">
+            <span class="updated">${updated}</span>
+            <button type="button" class="refresh-button" data-refresh="${block}"${data.loading ? " disabled" : ""}>${data.loading ? "更新中…" : "更新"}</button>
+          </div>
         </div>
+        ${blockNoteMarkup(data)}
         <div class="rounds" style="--slot-count: ${bracketSize}; --round-count: ${names.length};">
           ${names.map((name, round) => `
             <div class="round">
               <span class="round-label">${name}</span>
               <div class="round-grid">
                 ${Array.from({ length: bracketSize / (2 ** (round + 1)) }, (_, index) =>
-                  matchMarkup(block, round, index + 1, bracketSize)
+                  matchMarkup(block, round, index + 1)
                 ).join("")}
               </div>
             </div>
@@ -611,63 +992,160 @@
       </section>`;
     }
 
+    function podiumMarkup() {
+      const standings = finalStandings();
+      if (standings.status !== "decided") return "";
+
+      return `<div class="podium-heading">
+        <h2 id="podium-heading">表彰</h2>
+        <span>最終決戦の結果${standings.source === "manual" ? "(三すくみのため運営が決定)" : ""}</span>
+      </div>
+      <ol class="podium">
+        ${standings.order.map((team, index) => `<li class="podium-item rank-${index + 1}">
+          <span class="podium-rank">${index + 1}位</span>
+          <span class="podium-name">${escapeHtml((team.number ? team.number + "番 " : "") + team.name)}</span>
+        </li>`).join("")}
+      </ol>`;
+    }
+
+    // 三すくみ(全員1勝1敗)のときだけ出す。管理者は順位を選び、閲覧者には案内だけ出す
+    function tieMarkup() {
+      const standings = finalStandings();
+      const isTie = standings.status === "tie" ||
+        (standings.status === "decided" && standings.source === "manual");
+      if (!isTie) return "";
+
+      if (!isAdmin()) {
+        return `<p class="final-pending">全員1勝1敗のため、順位は運営が決定します。</p>`;
+      }
+
+      const current = {};
+      if (podiumDraft.dirty) {
+        [1, 2, 3].forEach(rank => { current[rank] = podiumDraft[rank]; });
+      } else {
+        tournamentData.final.podium.forEach(item => {
+          current[item.rank] = `${item.number || ""}|${item.name}`;
+        });
+      }
+      const stateText = podiumDraft.state ||
+        (standings.status === "decided" ? "保存済み" : "1〜3位をすべて選ぶと表彰欄に反映されます");
+
+      return `<div class="tie-box">
+        <span>三すくみ(全員1勝1敗)です。順位を設定してください。</span>
+        <span class="tie-state${podiumDraft.error ? " is-error" : ""}">${escapeHtml(stateText)}</span>
+        <div class="tie-selects">
+          ${[1, 2, 3].map(rank => `<label>${rank}位
+            <select class="podium-select" data-rank="${rank}">
+              <option value="">未設定</option>
+              ${standings.teams.map(team => `<option value="${escapeHtml(teamKey(team))}"${current[rank] === teamKey(team) ? " selected" : ""}>${escapeHtml((team.number ? team.number + "番 " : "") + team.name)}</option>`).join("")}
+            </select>
+          </label>`).join("")}
+        </div>
+      </div>`;
+    }
+
     function finalMarkup() {
       const matches = tournamentData.finalMatches || [];
       const isReady = matches.length === 3 && matches.every(match =>
         match.red && match.red.name && match.blue && match.blue.name
       );
+      const finalData = tournamentData.final;
+      const updated = finalData.updatedAt ? `更新 ${formatTime(finalData.updatedAt)}` : "未取得";
 
       return `<div class="final-heading">
         <h2 id="final-heading">最終決戦</h2>
-        <span>${isReady ? "A・B・Cコート代表の総当たり" : "3コートの代表決定後に組み合わせを表示"}</span>
+        <div class="block-tools">
+          <span>${isReady ? "A・B・Cブロック代表の総当たり" : "3ブロックの代表決定後に組み合わせを表示"}</span>
+          <span class="updated">${updated}</span>
+          <button type="button" class="refresh-button" data-refresh-final${finalData.loading ? " disabled" : ""}>${finalData.loading ? "更新中…" : "更新"}</button>
+        </div>
       </div>
+      ${finalData.error ? `<p class="block-note is-error">取得できませんでした: ${escapeHtml(finalData.error)}</p>` : ""}
       ${isReady ? `<div class="final-matches">
         ${[0, 1, 2].map((index) => {
           const match = matches[index] || {};
-          return `<article class="match">
+          const options = { block: "FINAL", round: 0, matchIndex: index + 1, editable: true };
+          return `<article class="match has-number">
             <span class="match-number">最終第${index + 1}試合<span>スコア</span></span>
-            ${teamMarkup(match.red)}
-            ${teamMarkup(match.blue)}
+            ${teamMarkup(match.red, { ...options, color: "red" })}
+            ${teamMarkup(match.blue, { ...options, color: "blue" })}
           </article>`;
         }).join("")}
-      </div>` : `<p class="final-pending">A・B・Cの代表が全員決まると、ここに最終3試合を表示します。</p>`}`;
+      </div>${tieMarkup()}` : `<p class="final-pending">A・B・Cの代表が全員決まると、ここに最終3試合を表示します。</p>`}`;
     }
 
-    function renderTournament(data = tournamentData) {
-      Object.assign(tournamentData, data);
+    // 描画し直しても、入力中のスコア・フォーカス・横スクロール位置を失わないようにする
+    function inputKey(input) {
+      const d = input.dataset;
+      return `${d.block}-${d.round}-${d.match}-${d.color}`;
+    }
+
+    function captureViewState() {
+      const active = document.activeElement;
+      const state = { values: {}, focus: null, scroll: {} };
+
+      document.querySelectorAll(".score-input").forEach(input => {
+        const key = inputKey(input);
+        if (input.value !== input.defaultValue) state.values[key] = input.value;
+        if (input === active) state.focus = key;
+      });
+      document.querySelectorAll(".block[data-block]").forEach(section => {
+        state.scroll[section.dataset.block] = section.scrollLeft;
+      });
+      return state;
+    }
+
+    function restoreViewState(state) {
+      document.querySelectorAll(".score-input").forEach(input => {
+        const key = inputKey(input);
+        if (key in state.values) input.value = state.values[key];
+        if (key === state.focus) input.focus();
+      });
+      document.querySelectorAll(".block[data-block]").forEach(section => {
+        section.scrollLeft = state.scroll[section.dataset.block] || 0;
+      });
+    }
+
+    function renderTournament() {
+      const state = captureViewState();
+      hideNameTip();
+      const podium = podiumMarkup();
+      const podiumSection = document.getElementById("podium-section");
+      podiumSection.innerHTML = podium;
+      podiumSection.hidden = !podium;
       document.getElementById("final-section").innerHTML = finalMarkup();
       document.getElementById("bracket-board").innerHTML = BLOCKS
         .map(blockMarkup)
         .join("");
+      restoreViewState(state);
     }
 
-    renderTournament();
-
-    if (IS_ADMIN) {
-      document.getElementById("admin-controls").hidden = false;
+    function setStatus(text, isError = false) {
+      const status = document.getElementById("api-status");
+      status.textContent = text;
+      status.classList.toggle("is-error", isError);
     }
 
-    function firstQualifier(data) {
-      return data && data.qualifier && data.qualifier.name
-        ? data.qualifier
-        : null;
+    function updateStatus() {
+      const qualified = BLOCKS.filter(block => tournamentData[block].qualifier).length;
+      setStatus(qualified === 3
+        ? "A・B・Cの代表が確定し、最終戦を表示しています。"
+        : `代表確定: ${qualified}/3。最新の結果は各ブロック右上の「更新」ボタンで取得できます。`);
     }
 
-    function blockPayload(data, block) {
-      const sourceBlock = data && data[block];
-      if (sourceBlock && Array.isArray(sourceBlock.matches)) {
-        return {
-          ...sourceBlock,
-          bracketSize: data.bracketSize || DEFAULT_BRACKET_SIZE
-        };
-      }
+    // ---------------------------------------------------------------
+    // データ取得(手動更新)
+    // ---------------------------------------------------------------
 
-      const firstBlock = data && Array.isArray(data.blocks) ? data.blocks[0] : null;
-      return firstBlock && Array.isArray(firstBlock.matches)
-        ? { matches: firstBlock.matches, bracketSize: data.bracketSize || DEFAULT_BRACKET_SIZE }
-        : { matches: [], bracketSize: DEFAULT_BRACKET_SIZE };
+    function winnerColor(redScore, blueScore) {
+      if (redScore === "" || blueScore === "") return "";
+      const red = Number(redScore);
+      const blue = Number(blueScore);
+      if (Number.isNaN(red) || Number.isNaN(blue) || red === blue) return "";
+      return red > blue ? "red" : "blue";
     }
 
+    // A・B・Cの代表がそろったら総当たり3試合を作り、保存済みのスコアを反映する
     function finalMatchesFromQualifiers() {
       const qualifiers = BLOCKS.map(block => tournamentData[block].qualifier);
       if (qualifiers.some(qualifier => !qualifier || !qualifier.name)) {
@@ -678,125 +1156,518 @@
         [qualifiers[0], qualifiers[1]],
         [qualifiers[1], qualifiers[2]],
         [qualifiers[2], qualifiers[0]]
-      ].map((teams, index) => ({
-        round: null,
-        match: index + 1,
-        red: teams[0],
-        blue: teams[1],
-        winner: false
-      }));
-    }
+      ].map((teams, index) => {
+        const red = { ...teams[0] };
+        const blue = { ...teams[1] };
+        const saved = tournamentData.final.rows.find(row => row.match === index + 1);
+        // 代表が入れ替わっていたら、古いスコアは使わない
+        const sameCard = saved && saved.redName === red.name && saved.blueName === blue.name;
+        let winner = false;
 
-    async function loadTournamentData() {
-      const status = document.getElementById("api-status");
-
-      try {
-        const results = await Promise.all(BLOCKS.map(async block => {
-          const url = TOURNAMENT_API_URLS[block];
-          if (!url) return { block, data: null };
-
-          const requestUrl = new URL(url);
-          requestUrl.searchParams.set("t", Date.now());
-          const response = await fetch(requestUrl.toString(), { cache: "no-store" });
-          if (!response.ok) throw new Error(`${block}: HTTP ${response.status}`);
-
-          const responseText = await response.text();
-          let data;
-          try {
-            data = JSON.parse(responseText);
-          } catch (parseError) {
-            throw new Error(`${block}: APIがJSONを返していません（公開設定またはURLを確認）`);
+        if (sameCard) {
+          red.score = saved.redScore;
+          blue.score = saved.blueScore;
+          const color = winnerColor(saved.redScore, saved.blueScore);
+          if (color) {
+            winner = true;
+            (color === "red" ? red : blue).winner = true;
           }
-          if (data.error) throw new Error(`${block}: ${data.error}`);
-          return { block, data };
-        }));
-
-        results.forEach(({ block, data }) => {
-          if (!data) return;
-          tournamentData[block] = {
-            ...blockPayload(data, block),
-            qualifier: firstQualifier(data)
-          };
-        });
-
-        tournamentData.finalMatches = finalMatchesFromQualifiers();
-        renderTournament(tournamentData);
-        const connected = results.filter(result => result.data).length;
-        const qualified = BLOCKS.filter(block => {
-          return tournamentData[block].qualifier && tournamentData[block].qualifier.name;
-        }).length;
-        status.textContent = qualified === 3
-          ? "A・B・Cの代表が確定し、最終戦を表示しています。"
-          : `${connected}/3ブロックを取得中。代表確定: ${qualified}/3。`;
-        status.classList.remove("is-error");
-      } catch (error) {
-        console.error("Tournament API error:", error);
-        status.textContent = `データ取得エラー: ${error.message}`;
-        status.classList.add("is-error");
-      }
-    }
-
-    // A・B・C それぞれを、自分のリーグ名を付けて保存する
-    async function saveAdminScores() {
-      const status = document.getElementById("api-status");
-      const token = document.getElementById("admin-token").value;
-      let saved = 0;
-
-      try {
-        for (const block of BLOCKS) {
-          const source = tournamentData[block].matches;
-          // 読み込めていないリーグは保存しない(空のデータで上書きしないため)
-          if (!source.length) continue;
-
-          const rows = source
-            .filter(match => match.red && match.red.name && match.blue && match.blue.name)
-            .map(match => {
-              const selector = color =>
-                `[data-block="${block}"][data-round="${match.round}"][data-match="${match.match}"][data-color="${color}"]`;
-              const redInput = document.querySelector(selector("red"));
-              const blueInput = document.querySelector(selector("blue"));
-
-              return {
-                round: match.round,
-                match: match.match,
-                redNumber: match.red.number || "",
-                redName: match.red.name || "",
-                redScore: redInput ? redInput.value : "",
-                blueNumber: match.blue.number || "",
-                blueName: match.blue.name || "",
-                blueScore: blueInput ? blueInput.value : ""
-              };
-            });
-
-          const response = await fetch(TOURNAMENT_API_BASE_URL, {
-            method: "POST",
-            headers: { "Content-Type": "text/plain;charset=utf-8" },
-            body: JSON.stringify({ token, league: block, matches: rows })
-          });
-          const data = await response.json();
-          if (data.error) throw new Error(`${block}: ${data.error}`);
-          saved += data.saved;
         }
 
-        status.textContent = `${saved}試合を保存しました。`;
-        status.classList.remove("is-error");
-        await loadTournamentData();
+        return { round: null, match: index + 1, red, blue, winner };
+      });
+    }
+
+    // ---------------------------------------------------------------
+    // 最終決戦の順位(2勝=1位、1勝=2位、0勝=3位。全員1勝1敗なら手動)
+    // ---------------------------------------------------------------
+
+    function teamKey(team) {
+      return `${team.number || ""}|${team.name}`;
+    }
+
+    function manualOrder(teams) {
+      const byRank = {};
+      tournamentData.final.podium.forEach(item => { byRank[item.rank] = item; });
+      const order = [1, 2, 3].map(rank => {
+        const item = byRank[rank];
+        return item && teams.find(team => teamKey(team) === `${item.number || ""}|${item.name}`);
+      });
+      const valid = order.every(Boolean) && new Set(order.map(teamKey)).size === 3;
+      return valid ? order : null;
+    }
+
+    function finalStandings() {
+      const matches = tournamentData.finalMatches;
+      if (matches.length !== 3 || !matches.every(match => match.winner)) {
+        return { status: "waiting" };
+      }
+
+      const teams = BLOCKS.map(block => tournamentData[block].qualifier);
+      const wins = {};
+      teams.forEach(team => { wins[teamKey(team)] = 0; });
+      matches.forEach(match => {
+        const winner = match.red.winner ? match.red : match.blue;
+        wins[teamKey(winner)] += 1;
+      });
+
+      const distinct = new Set(teams.map(team => wins[teamKey(team)])).size === 3;
+      if (distinct) {
+        const order = [...teams].sort((left, right) => wins[teamKey(right)] - wins[teamKey(left)]);
+        return { status: "decided", order, source: "auto", teams };
+      }
+
+      const manual = manualOrder(teams);
+      return manual
+        ? { status: "decided", order: manual, source: "manual", teams }
+        : { status: "tie", teams };
+    }
+
+    function applyLeagueData(block, data) {
+      tournamentData[block] = {
+        matches: Array.isArray(data.matches) ? data.matches : [],
+        bracketSize: data.bracketSize || DEFAULT_BRACKET_SIZE,
+        qualifier: data.qualifier && data.qualifier.name ? data.qualifier : null,
+        updatedAt: data.generatedAt || Date.now(),
+        pendingBlocks: Array.isArray(data.pendingBlocks) ? data.pendingBlocks : [],
+        blockCount: data.blockCount || 0,
+        loading: false,
+        error: ""
+      };
+    }
+
+    async function postJson(body) {
+      const response = await fetch(TOURNAMENT_API_BASE_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(body)
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.json();
+    }
+
+    async function fetchLeague(block) {
+      const requestUrl = new URL(TOURNAMENT_API_BASE_URL);
+      requestUrl.searchParams.set("mode", "tournament");
+      requestUrl.searchParams.set("league", block);
+      requestUrl.searchParams.set("t", Date.now());
+
+      const response = await fetch(requestUrl.toString(), { cache: "no-store" });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      let data;
+      try {
+        data = JSON.parse(await response.text());
+      } catch (parseError) {
+        throw new Error("APIがJSONを返していません(公開設定またはURLを確認)");
+      }
+      if (data.error) throw new Error(data.error);
+      return data;
+    }
+
+    function applyFinalData(data) {
+      tournamentData.final = {
+        rows: Array.isArray(data.rows) ? data.rows : [],
+        podium: Array.isArray(data.podium) ? data.podium : [],
+        updatedAt: data.generatedAt || Date.now(),
+        loading: false,
+        error: ""
+      };
+      tournamentData.finalMatches = finalMatchesFromQualifiers();
+    }
+
+    async function refreshFinal() {
+      tournamentData.final.loading = true;
+      renderTournament();
+
+      try {
+        const requestUrl = new URL(TOURNAMENT_API_BASE_URL);
+        requestUrl.searchParams.set("mode", "final");
+        requestUrl.searchParams.set("t", Date.now());
+        const response = await fetch(requestUrl.toString(), { cache: "no-store" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = JSON.parse(await response.text());
+        if (data.error) throw new Error(data.error);
+        applyFinalData(data);
       } catch (error) {
-        status.textContent = `保存に失敗しました: ${error.message}`;
-        status.classList.add("is-error");
+        console.error("Tournament API error (final):", error);
+        tournamentData.final.loading = false;
+        tournamentData.final.error = error.message;
+      }
+
+      renderTournament();
+    }
+
+    // 指定ブロックだけ更新する(ボタンを押したときだけ通信する)
+    async function refreshBlocks(blocks) {
+      blocks.forEach(block => { tournamentData[block].loading = true; });
+      renderTournament();
+
+      await Promise.all(blocks.map(async block => {
+        try {
+          applyLeagueData(block, await fetchLeague(block));
+        } catch (error) {
+          console.error(`Tournament API error (${block}):`, error);
+          tournamentData[block].loading = false;
+          tournamentData[block].error = error.message;
+        }
+      }));
+
+      tournamentData.finalMatches = finalMatchesFromQualifiers();
+      renderTournament();
+      updateStatus();
+    }
+
+    // ---------------------------------------------------------------
+    // 管理者: スコア入力 → 自動保存
+    // ---------------------------------------------------------------
+
+    const saveTimers = {};
+    let saveChain = Promise.resolve();
+
+    function scheduleSave(block) {
+      clearTimeout(saveTimers[block]);
+      setStatus("入力を確認しています…");
+      // 続けて入力しているあいだは待ち、落ち着いたら保存する
+      saveTimers[block] = setTimeout(() => {
+        saveChain = saveChain.then(() => saveBlock(block));
+      }, 700);
+    }
+
+    function collectScoreRows(block) {
+      const selector = (match, color) =>
+        `[data-block="${block}"][data-round="${match.round}"][data-match="${match.match}"][data-color="${color}"]`;
+
+      return tournamentData[block].matches
+        .filter(match => match.red && match.blue && !match.red.pending && !match.blue.pending &&
+          match.red.name && match.blue.name)
+        .map(match => {
+          const redInput = document.querySelector(selector(match, "red"));
+          const blueInput = document.querySelector(selector(match, "blue"));
+          return {
+            round: match.round,
+            match: match.match,
+            redNumber: match.red.number || "",
+            redName: match.red.name || "",
+            redScore: redInput ? redInput.value : "",
+            blueNumber: match.blue.number || "",
+            blueName: match.blue.name || "",
+            blueScore: blueInput ? blueInput.value : ""
+          };
+        })
+        .filter(row => row.redScore !== "" || row.blueScore !== "");
+    }
+
+    async function saveBlock(block) {
+      if (!isAdmin()) return;
+      // 読み込めていないリーグは保存しない(空のデータで上書きしないため)
+      if (!tournamentData[block].matches.length) return;
+
+      try {
+        setStatus(`${block}ブロックを保存中…`);
+        const data = await postJson({
+          token: adminToken,
+          league: block,
+          matches: collectScoreRows(block)
+        });
+
+        if (data.error === "Unauthorized") {
+          logout("パスワードが無効になりました。もう一度ログインしてください。");
+          return;
+        }
+        if (data.error) throw new Error(data.error);
+
+        // 保存直後の最新データ(勝ち上がり反映済み)がそのまま返ってくる
+        applyLeagueData(block, data.data);
+        tournamentData.finalMatches = finalMatchesFromQualifiers();
+        renderTournament();
+        setStatus(`${block}ブロックを保存し、勝ち上がりを反映しました(${formatTime(Date.now())})`);
+      } catch (error) {
+        setStatus(`保存に失敗しました: ${error.message}`, true);
       }
     }
 
-    loadTournamentData();
-    // 管理画面では入力中のスコアが消えないよう、自動更新を止める
-    setInterval(() => {
-      if (!IS_ADMIN) loadTournamentData();
-    }, 10000);
-
-    const saveScoresButton = document.getElementById("save-scores");
-    if (saveScoresButton) {
-      saveScoresButton.addEventListener("click", saveAdminScores);
+    function isUnauthorized(data) {
+      if (data.error !== "Unauthorized") return false;
+      logout("パスワードが無効になりました。もう一度ログインしてください。");
+      return true;
     }
+
+    function scheduleFinalSave() {
+      clearTimeout(saveTimers.FINAL);
+      setStatus("入力を確認しています…");
+      saveTimers.FINAL = setTimeout(() => {
+        saveChain = saveChain.then(saveFinal);
+      }, 700);
+    }
+
+    function collectFinalRows() {
+      const input = (match, color) => document.querySelector(
+        `[data-block="FINAL"][data-match="${match.match}"][data-color="${color}"]`
+      );
+
+      return tournamentData.finalMatches
+        .map(match => ({
+          round: 0,
+          match: match.match,
+          redNumber: match.red.number || "",
+          redName: match.red.name || "",
+          redScore: input(match, "red") ? input(match, "red").value : "",
+          blueNumber: match.blue.number || "",
+          blueName: match.blue.name || "",
+          blueScore: input(match, "blue") ? input(match, "blue").value : ""
+        }))
+        .filter(row => row.redScore !== "" || row.blueScore !== "");
+    }
+
+    async function saveFinal() {
+      if (!isAdmin() || !tournamentData.finalMatches.length) return;
+
+      try {
+        setStatus("最終決戦を保存中…");
+        const data = await postJson({ token: adminToken, league: "FINAL", matches: collectFinalRows() });
+        if (isUnauthorized(data)) return;
+        if (data.error) throw new Error(data.error);
+
+        applyFinalData(data.data);
+        renderTournament();
+        setStatus(`最終決戦を保存しました(${formatTime(Date.now())})`);
+      } catch (error) {
+        setStatus(`保存に失敗しました: ${error.message}`, true);
+      }
+    }
+
+    // 三すくみのときの順位(手動)
+    function onPodiumChange() {
+      // 選んだ内容をその場で記録する(保存を待たない)
+      document.querySelectorAll(".podium-select").forEach(select => {
+        podiumDraft[Number(select.dataset.rank)] = select.value;
+      });
+      podiumDraft.dirty = true;
+
+      const chosen = [1, 2, 3].map(rank => podiumDraft[rank]).filter(Boolean);
+      if (new Set(chosen).size !== chosen.length) {
+        podiumDraft.state = "同じ選手を複数の順位に設定することはできません。";
+        podiumDraft.error = true;
+        clearTimeout(saveTimers.PODIUM);
+        return;
+      }
+
+      podiumDraft.state = "保存待ち…";
+      podiumDraft.error = false;
+      // 続けて選んでいるあいだは待ち、落ち着いたら1回でまとめて保存する
+      clearTimeout(saveTimers.PODIUM);
+      saveTimers.PODIUM = setTimeout(() => {
+        saveChain = saveChain.then(savePodium);
+      }, 600);
+    }
+
+    async function savePodium() {
+      if (!isAdmin()) return;
+
+      const snapshot = { 1: podiumDraft[1], 2: podiumDraft[2], 3: podiumDraft[3] };
+      const teams = BLOCKS.map(block => tournamentData[block].qualifier).filter(Boolean);
+      const rows = [1, 2, 3]
+        .filter(rank => snapshot[rank] !== "")
+        .map(rank => {
+          const team = teams.find(candidate => teamKey(candidate) === snapshot[rank]);
+          return { round: rank, match: 1, redNumber: team.number || "", redName: team.name };
+        });
+
+      try {
+        podiumDraft.state = "保存中…";
+        podiumDraft.error = false;
+        renderTournament();
+
+        const data = await postJson({ token: adminToken, league: "PODIUM", matches: rows });
+        if (isUnauthorized(data)) return;
+        if (data.error) throw new Error(data.error);
+
+        applyFinalData(data.data);
+        // 保存中にさらに選び直していたら、その分は次の保存に任せる
+        const unchanged = [1, 2, 3].every(rank => podiumDraft[rank] === snapshot[rank]);
+        if (unchanged) {
+          podiumDraft.dirty = false;
+          podiumDraft.state = "";
+        } else {
+          podiumDraft.state = "保存待ち…";
+        }
+        renderTournament();
+        setStatus(`順位を保存しました(${formatTime(Date.now())})`);
+      } catch (error) {
+        podiumDraft.state = `保存に失敗しました: ${error.message}(もう一度選ぶと再保存します)`;
+        podiumDraft.error = true;
+        renderTournament();
+        setStatus(`保存に失敗しました: ${error.message}`, true);
+      }
+    }
+
+    // ---------------------------------------------------------------
+    // 管理者: パスワード
+    // ---------------------------------------------------------------
+
+    function storedToken() {
+      try { return sessionStorage.getItem(TOKEN_KEY) || ""; } catch (error) { return ""; }
+    }
+
+    function storeToken(token) {
+      try {
+        if (token) sessionStorage.setItem(TOKEN_KEY, token);
+        else sessionStorage.removeItem(TOKEN_KEY);
+      } catch (error) { /* 保存できなくても動く */ }
+    }
+
+    async function verifyPassword(token) {
+      const data = await postJson({ action: "verify", token });
+      return Boolean(data && data.ok);
+    }
+
+    function showLogin(message = "") {
+      document.getElementById("login").hidden = false;
+      document.getElementById("login-error").textContent = message;
+      document.getElementById("login-password").focus();
+    }
+
+    function enterAdmin(token) {
+      adminToken = token;
+      storeToken(token);
+      document.getElementById("login").hidden = true;
+      document.getElementById("admin-controls").hidden = false;
+      document.getElementById("login-password").value = "";
+      renderTournament();
+    }
+
+    function logout(message = "") {
+      adminToken = "";
+      storeToken("");
+      document.getElementById("admin-controls").hidden = true;
+      renderTournament();
+      showLogin(message);
+    }
+
+    async function initAdmin() {
+      if (!WANT_ADMIN) return;
+
+      showLogin();
+      const saved = storedToken();
+      if (!saved) return;
+
+      try {
+        if (await verifyPassword(saved)) enterAdmin(saved);
+        else storeToken("");
+      } catch (error) {
+        storeToken("");
+      }
+    }
+
+    document.getElementById("login-form").addEventListener("submit", async event => {
+      event.preventDefault();
+      const password = document.getElementById("login-password").value;
+      const button = document.getElementById("login-button");
+      const error = document.getElementById("login-error");
+
+      button.disabled = true;
+      error.textContent = "確認しています…";
+      try {
+        if (await verifyPassword(password)) {
+          enterAdmin(password);
+        } else {
+          error.textContent = "パスワードが違います。";
+        }
+      } catch (failure) {
+        error.textContent = `確認できませんでした: ${failure.message}`;
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    document.getElementById("logout").addEventListener("click", () => logout());
+
+    // ---------------------------------------------------------------
+    // イベント
+    // ---------------------------------------------------------------
+
+    document.getElementById("bracket-board").addEventListener("click", event => {
+      const button = event.target.closest("[data-refresh]");
+      if (button) refreshBlocks([button.dataset.refresh]);
+    });
+
+    function onScoreChange(event) {
+      const input = event.target.closest(".score-input");
+      if (input && isAdmin()) {
+        if (input.dataset.block === "FINAL") scheduleFinalSave();
+        else scheduleSave(input.dataset.block);
+      }
+    }
+
+    document.getElementById("bracket-board").addEventListener("change", onScoreChange);
+    document.getElementById("final-section").addEventListener("change", event => {
+      if (event.target.closest(".podium-select")) {
+        onPodiumChange();
+      } else {
+        onScoreChange(event);
+      }
+    });
+
+    document.getElementById("final-section").addEventListener("click", event => {
+      if (event.target.closest("[data-refresh-final]")) refreshFinal();
+    });
+
+    function refreshAll() {
+      return Promise.all([refreshBlocks(BLOCKS), refreshFinal()]);
+    }
+
+    document.getElementById("refresh-all").addEventListener("click", refreshAll);
+
+    // ---------------------------------------------------------------
+    // 長い名前: タップ(PCはカーソルを載せる)で全文を上に出す。ほかをタップすると消える
+    // ---------------------------------------------------------------
+
+    const nameTip = document.getElementById("name-tip");
+
+    function hideNameTip() {
+      nameTip.hidden = true;
+    }
+
+    function showNameTip(element) {
+      // 省略されていない名前では出さない
+      if (element.scrollWidth <= element.clientWidth + 1) {
+        hideNameTip();
+        return;
+      }
+
+      nameTip.textContent = element.textContent;
+      nameTip.hidden = false;
+
+      const rect = element.getBoundingClientRect();
+      const tip = nameTip.getBoundingClientRect();
+      const left = Math.min(Math.max(8, rect.left), window.innerWidth - tip.width - 8);
+      const above = rect.top - tip.height - 8;
+      nameTip.style.left = `${Math.max(8, left)}px`;
+      nameTip.style.top = `${above >= 8 ? above : rect.bottom + 8}px`;
+    }
+
+    document.addEventListener("pointerover", event => {
+      if (event.pointerType !== "mouse") return;
+      const element = event.target.closest(".team-name");
+      if (element) showNameTip(element);
+    });
+    document.addEventListener("pointerout", event => {
+      if (event.pointerType !== "mouse") return;
+      if (event.target.closest(".team-name")) hideNameTip();
+    });
+    document.addEventListener("click", event => {
+      const element = event.target.closest(".team-name");
+      if (element) showNameTip(element);
+      else hideNameTip();
+    });
+    window.addEventListener("scroll", hideNameTip, true);
+    window.addEventListener("resize", hideNameTip);
+
+    // 開いたときに1回だけ取得する。以降は「更新」ボタンを押したときだけ通信する。
+    renderTournament();
+    initAdmin();
+    refreshAll();
   </script>
 </body>
 </html>
