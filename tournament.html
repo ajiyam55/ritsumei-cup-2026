@@ -102,9 +102,21 @@
       background: var(--winner);
     }
 
+    /* 管理者の注意書きは、ヘッダーの下の段に横いっぱいで出す */
+    .page-header {
+      flex-wrap: wrap;
+    }
+
+    .page-header > .refresh-button {
+      white-space: nowrap;
+    }
+
     .admin-controls {
+      flex: 1 1 100%;
+      order: 10;
       display: flex;
-      align-items: end;
+      flex-wrap: wrap;
+      align-items: center;
       gap: 8px;
       padding: 8px;
       background: #fff;
@@ -265,6 +277,46 @@
       cursor: progress;
     }
 
+    .save-button {
+      min-height: 30px;
+      padding: 4px 14px;
+      color: var(--primary);
+      background: #fff;
+      border: 2px solid var(--primary);
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    /* 未保存の変更があるとき */
+    .save-button.is-dirty {
+      color: #fff;
+      background: var(--winner);
+      border-color: var(--winner);
+    }
+
+    .save-button:disabled {
+      opacity: 0.6;
+      cursor: progress;
+    }
+
+    /* 見出しの下に、薄い灰色の小さな文字で出す */
+    .dirty-note {
+      margin: -4px 0 8px;
+      color: #a8a2a6;
+      font-size: 0.72rem;
+      text-align: right;
+    }
+
+    .dirty-note:empty {
+      display: none;
+    }
+
+    .score-input:disabled {
+      background: #f3f0f1;
+    }
+
     .block-note {
       margin: -4px 0 8px;
       color: var(--muted);
@@ -283,8 +335,15 @@
     }
 
     .admin-controls > span {
+      flex: 1 1 220px;
       color: var(--muted);
       font-size: 0.75rem;
+      line-height: 1.5;
+    }
+
+    .admin-controls button {
+      flex: 0 0 auto;
+      white-space: nowrap;
     }
 
     /* 管理者ログイン: 入力するまで画面全体を隠す */
@@ -764,7 +823,7 @@
   </style>
 </head>
 <body>
-  <a href="index.html" class="back-button">← 戻る</a>
+  <a href="index.html" target="_top" class="back-button">← 戻る</a>
   <main class="page">
     <header class="page-header">
       <div>
@@ -777,7 +836,7 @@
       </div>
       <button id="refresh-all" class="refresh-button" type="button">すべて更新</button>
       <div id="admin-controls" class="admin-controls" hidden>
-        <span>スコアは入力すると自動で保存されます</span>
+        <span>スコアを入力したら、そのブロックの「保存」を押してください(自動では保存されません)。ほかの人が入力した内容を見るときや、編集を始める前は「更新」を押して最新にしてください。</span>
         <button id="logout" type="button">ログアウト</button>
       </div>
     </header>
@@ -821,7 +880,9 @@
         pendingBlocks: [],
         blockCount: 0,
         loading: false,
-        error: ""
+        error: "",
+        saving: false,
+        saveError: ""
       };
     }
 
@@ -830,12 +891,15 @@
       B: newBlockState(),
       C: newBlockState(),
       // 最終決戦のスコアと、三すくみのときの手動順位(サーバーから取得)
-      final: { rows: [], podium: [], updatedAt: null, loading: false, error: "" },
+      final: { rows: [], podium: [], updatedAt: null, loading: false, error: "", saving: false, saveError: "" },
       finalMatches: []
     };
 
     // 三すくみの順位: 選んだ内容はすぐ画面に残し(draft)、あとでまとめて保存する。
     // 保存の返事が来る前に描き直されても、選んだ順位が「未設定」に戻らないようにする。
+    // 保存していない入力があるブロック("A"/"B"/"C"/"FINAL")
+    const dirtyKeys = new Set();
+
     const podiumDraft = { 1: "", 2: "", 3: "", dirty: false, state: "", error: false };
 
     // ---------------------------------------------------------------
@@ -885,7 +949,7 @@
       const scoreMarkup = options.bye
         ? ""
         : isAdmin() && options.editable
-        ? `<input class="score-input" type="number" min="0" inputmode="numeric" data-block="${options.block}" data-round="${options.round}" data-match="${options.matchIndex}" data-color="${options.color}" value="${escapeHtml(score)}">`
+        ? `<input class="score-input" type="number" min="0" inputmode="numeric" data-block="${options.block}" data-round="${options.round}" data-match="${options.matchIndex}" data-color="${options.color}" value="${escapeHtml(score)}"${options.disabled ? " disabled" : ""}>`
         : `<span class="team-score">${score === "" ? "-" : escapeHtml(score)}</span>`;
 
       return `<div class="team${winner}">
@@ -943,8 +1007,8 @@
       return `<div class="${slotClass}" style="grid-row: ${rowStart} / span ${rowSpan};">
         <article class="${matchClass}">
           ${matchNumberMarkup}
-          ${teamMarkup(match.red, { block, round, matchIndex, color: "red", placeholder, editable, bye: isBye })}
-          ${teamMarkup(match.blue, { block, round, matchIndex, color: "blue", placeholder, editable, bye: isBye })}
+          ${teamMarkup(match.red, { block, round, matchIndex, color: "red", placeholder, editable, bye: isBye, disabled: tournamentData[block].saving })}
+          ${teamMarkup(match.blue, { block, round, matchIndex, color: "blue", placeholder, editable, bye: isBye, disabled: tournamentData[block].saving })}
         </article>
       </div>`;
     }
@@ -952,6 +1016,9 @@
     function blockNoteMarkup(data) {
       if (data.error) {
         return `<p class="block-note is-error">取得できませんでした: ${escapeHtml(data.error)}</p>`;
+      }
+      if (data.saveError) {
+        return `<p class="block-note is-error">保存に失敗しました: ${escapeHtml(data.saveError)}(入力内容は残っています。もう一度「保存」を押してください)</p>`;
       }
       // 管理者にだけ、代表が取れていないブロックを知らせる(原因調べ用)
       if (isAdmin() && data.pendingBlocks.length) {
@@ -974,8 +1041,10 @@
           <div class="block-tools">
             <span class="updated">${updated}</span>
             <button type="button" class="refresh-button" data-refresh="${block}"${data.loading ? " disabled" : ""}>${data.loading ? "更新中…" : "更新"}</button>
+            ${isAdmin() ? `<button type="button" class="save-button${dirtyKeys.has(block) ? " is-dirty" : ""}" data-save="${block}"${data.saving ? " disabled" : ""}>${data.saving ? "保存中…" : "保存"}</button>` : ""}
           </div>
         </div>
+        ${isAdmin() ? `<p class="dirty-note" data-dirty-note="${block}">${dirtyKeys.has(block) ? "未保存の変更があります" : ""}</p>` : ""}
         ${blockNoteMarkup(data)}
         <div class="rounds" style="--slot-count: ${bracketSize}; --round-count: ${names.length};">
           ${names.map((name, round) => `
@@ -1058,13 +1127,16 @@
           <span>${isReady ? "A・B・Cブロック代表の総当たり" : "3ブロックの代表決定後に組み合わせを表示"}</span>
           <span class="updated">${updated}</span>
           <button type="button" class="refresh-button" data-refresh-final${finalData.loading ? " disabled" : ""}>${finalData.loading ? "更新中…" : "更新"}</button>
+          ${isAdmin() ? `<button type="button" class="save-button${dirtyKeys.has("FINAL") ? " is-dirty" : ""}" data-save-final${finalData.saving ? " disabled" : ""}>${finalData.saving ? "保存中…" : "保存"}</button>` : ""}
         </div>
       </div>
+      ${isAdmin() ? `<p class="dirty-note" data-dirty-note="FINAL">${dirtyKeys.has("FINAL") ? "未保存の変更があります" : ""}</p>` : ""}
+      ${finalData.saveError ? `<p class="block-note is-error">保存に失敗しました: ${escapeHtml(finalData.saveError)}(入力内容は残っています。もう一度「保存」を押してください)</p>` : ""}
       ${finalData.error ? `<p class="block-note is-error">取得できませんでした: ${escapeHtml(finalData.error)}</p>` : ""}
       ${isReady ? `<div class="final-matches">
         ${[0, 1, 2].map((index) => {
           const match = matches[index] || {};
-          const options = { block: "FINAL", round: 0, matchIndex: index + 1, editable: true };
+          const options = { block: "FINAL", round: 0, matchIndex: index + 1, editable: true, disabled: finalData.saving };
           return `<article class="match has-number">
             <span class="match-number">最終第${index + 1}試合<span>スコア</span></span>
             ${teamMarkup(match.red, { ...options, color: "red" })}
@@ -1232,7 +1304,9 @@
         pendingBlocks: Array.isArray(data.pendingBlocks) ? data.pendingBlocks : [],
         blockCount: data.blockCount || 0,
         loading: false,
-        error: ""
+        error: "",
+        saving: false,
+        saveError: ""
       };
     }
 
@@ -1271,12 +1345,19 @@
         podium: Array.isArray(data.podium) ? data.podium : [],
         updatedAt: data.generatedAt || Date.now(),
         loading: false,
-        error: ""
+        error: "",
+        saving: false,
+        saveError: ""
       };
       tournamentData.finalMatches = finalMatchesFromQualifiers();
     }
 
     async function refreshFinal() {
+      if (dirtyKeys.has("FINAL")) {
+        if (!window.confirm("最終決戦に未保存の入力があります。更新すると入力した内容は消えます。更新しますか?")) return;
+        discardEdits("FINAL");
+      }
+
       tournamentData.final.loading = true;
       renderTournament();
 
@@ -1300,6 +1381,14 @@
 
     // 指定ブロックだけ更新する(ボタンを押したときだけ通信する)
     async function refreshBlocks(blocks) {
+      const unsaved = blocks.filter(block => dirtyKeys.has(block));
+      if (unsaved.length) {
+        const ok = window.confirm(`${unsaved.join("・")}ブロックに未保存のスコアがあります。更新すると入力した内容は消えます。更新しますか?`);
+        if (ok) unsaved.forEach(discardEdits);
+        else blocks = blocks.filter(block => !unsaved.includes(block));
+      }
+      if (!blocks.length) return;
+
       blocks.forEach(block => { tournamentData[block].loading = true; });
       renderTournament();
 
@@ -1322,16 +1411,34 @@
     // 管理者: スコア入力 → 自動保存
     // ---------------------------------------------------------------
 
-    const saveTimers = {};
     let saveChain = Promise.resolve();
 
-    function scheduleSave(block) {
-      clearTimeout(saveTimers[block]);
-      setStatus("入力を確認しています…");
-      // 続けて入力しているあいだは待ち、落ち着いたら保存する
-      saveTimers[block] = setTimeout(() => {
-        saveChain = saveChain.then(() => saveBlock(block));
-      }, 700);
+    // 保存していない入力があるかどうかを記録し、保存ボタンの色に反映する
+    function setDirty(key, isDirty) {
+      if (isDirty) dirtyKeys.add(key);
+      else dirtyKeys.delete(key);
+
+      const note = document.querySelector(`[data-dirty-note="${key}"]`);
+      if (note) note.textContent = isDirty ? "未保存の変更があります" : "";
+      const button = document.querySelector(key === "FINAL" ? "[data-save-final]" : `[data-save="${key}"]`);
+      if (button) button.classList.toggle("is-dirty", isDirty);
+    }
+
+    function discardScoreInputs(key) {
+      document.querySelectorAll(`.score-input[data-block="${key}"]`).forEach(input => {
+        input.value = input.defaultValue;
+      });
+    }
+
+    // 入力を捨てて、サーバーの内容に戻す
+    function discardEdits(key) {
+      discardScoreInputs(key);
+      if (key === "FINAL") {
+        podiumDraft.dirty = false;
+        podiumDraft.state = "";
+        podiumDraft.error = false;
+      }
+      dirtyKeys.delete(key);
     }
 
     function collectScoreRows(block) {
@@ -1363,26 +1470,29 @@
       // 読み込めていないリーグは保存しない(空のデータで上書きしないため)
       if (!tournamentData[block].matches.length) return;
 
-      try {
-        setStatus(`${block}ブロックを保存中…`);
-        const data = await postJson({
-          token: adminToken,
-          league: block,
-          matches: collectScoreRows(block)
-        });
+      const rows = collectScoreRows(block);
+      tournamentData[block].saving = true;
+      tournamentData[block].saveError = "";
+      setStatus(`${block}ブロックを保存中…`);
+      renderTournament();
 
-        if (data.error === "Unauthorized") {
-          logout("パスワードが無効になりました。もう一度ログインしてください。");
-          return;
-        }
+      try {
+        const data = await postJson({ token: adminToken, league: block, matches: rows });
+        tournamentData[block].saving = false;
+
+        if (isUnauthorized(data)) return;
         if (data.error) throw new Error(data.error);
 
         // 保存直後の最新データ(勝ち上がり反映済み)がそのまま返ってくる
+        discardEdits(block);
         applyLeagueData(block, data.data);
         tournamentData.finalMatches = finalMatchesFromQualifiers();
         renderTournament();
         setStatus(`${block}ブロックを保存し、勝ち上がりを反映しました(${formatTime(Date.now())})`);
       } catch (error) {
+        tournamentData[block].saving = false;
+        tournamentData[block].saveError = error.message;
+        renderTournament();
         setStatus(`保存に失敗しました: ${error.message}`, true);
       }
     }
@@ -1391,14 +1501,6 @@
       if (data.error !== "Unauthorized") return false;
       logout("パスワードが無効になりました。もう一度ログインしてください。");
       return true;
-    }
-
-    function scheduleFinalSave() {
-      clearTimeout(saveTimers.FINAL);
-      setStatus("入力を確認しています…");
-      saveTimers.FINAL = setTimeout(() => {
-        saveChain = saveChain.then(saveFinal);
-      }, 700);
     }
 
     function collectFinalRows() {
@@ -1420,26 +1522,36 @@
         .filter(row => row.redScore !== "" || row.blueScore !== "");
     }
 
+    // 最終決戦のスコアだけを保存する。成功したら true
     async function saveFinal() {
-      if (!isAdmin() || !tournamentData.finalMatches.length) return;
+      if (!isAdmin() || !tournamentData.finalMatches.length) return true;
+
+      const rows = collectFinalRows();
+      tournamentData.final.saving = true;
+      tournamentData.final.saveError = "";
+      renderTournament();
 
       try {
-        setStatus("最終決戦を保存中…");
-        const data = await postJson({ token: adminToken, league: "FINAL", matches: collectFinalRows() });
-        if (isUnauthorized(data)) return;
+        const data = await postJson({ token: adminToken, league: "FINAL", matches: rows });
+        tournamentData.final.saving = false;
+
+        if (isUnauthorized(data)) return false;
         if (data.error) throw new Error(data.error);
 
+        discardScoreInputs("FINAL");
         applyFinalData(data.data);
         renderTournament();
-        setStatus(`最終決戦を保存しました(${formatTime(Date.now())})`);
+        return true;
       } catch (error) {
-        setStatus(`保存に失敗しました: ${error.message}`, true);
+        tournamentData.final.saving = false;
+        tournamentData.final.saveError = error.message;
+        renderTournament();
+        return false;
       }
     }
 
-    // 三すくみのときの順位(手動)
+    // 三すくみのときの順位(手動)。選んだだけでは保存しない
     function onPodiumChange() {
-      // 選んだ内容をその場で記録する(保存を待たない)
       document.querySelectorAll(".podium-select").forEach(select => {
         podiumDraft[Number(select.dataset.rank)] = select.value;
       });
@@ -1449,23 +1561,31 @@
       if (new Set(chosen).size !== chosen.length) {
         podiumDraft.state = "同じ選手を複数の順位に設定することはできません。";
         podiumDraft.error = true;
-        clearTimeout(saveTimers.PODIUM);
-        return;
+      } else {
+        podiumDraft.state = "未保存です。「保存」を押してください。";
+        podiumDraft.error = false;
       }
 
-      podiumDraft.state = "保存待ち…";
-      podiumDraft.error = false;
-      // 続けて選んでいるあいだは待ち、落ち着いたら1回でまとめて保存する
-      clearTimeout(saveTimers.PODIUM);
-      saveTimers.PODIUM = setTimeout(() => {
-        saveChain = saveChain.then(savePodium);
-      }, 600);
+      setDirty("FINAL", true);
+      const note = document.querySelector(".tie-state");
+      if (note) {
+        note.textContent = podiumDraft.state;
+        note.classList.toggle("is-error", podiumDraft.error);
+      }
     }
 
     async function savePodium() {
-      if (!isAdmin()) return;
+      if (!isAdmin()) return true;
 
       const snapshot = { 1: podiumDraft[1], 2: podiumDraft[2], 3: podiumDraft[3] };
+      const chosen = [1, 2, 3].map(rank => snapshot[rank]).filter(Boolean);
+      if (new Set(chosen).size !== chosen.length) {
+        podiumDraft.state = "同じ選手を複数の順位に設定することはできません。";
+        podiumDraft.error = true;
+        renderTournament();
+        return false;
+      }
+
       const teams = BLOCKS.map(block => tournamentData[block].qualifier).filter(Boolean);
       const rows = [1, 2, 3]
         .filter(rank => snapshot[rank] !== "")
@@ -1480,25 +1600,37 @@
         renderTournament();
 
         const data = await postJson({ token: adminToken, league: "PODIUM", matches: rows });
-        if (isUnauthorized(data)) return;
+        if (isUnauthorized(data)) return false;
         if (data.error) throw new Error(data.error);
 
         applyFinalData(data.data);
-        // 保存中にさらに選び直していたら、その分は次の保存に任せる
+        // 保存中にさらに選び直していたら、その分は未保存のまま残す
         const unchanged = [1, 2, 3].every(rank => podiumDraft[rank] === snapshot[rank]);
-        if (unchanged) {
-          podiumDraft.dirty = false;
-          podiumDraft.state = "";
-        } else {
-          podiumDraft.state = "保存待ち…";
-        }
+        podiumDraft.dirty = !unchanged;
+        podiumDraft.state = unchanged ? "" : "未保存です。「保存」を押してください。";
         renderTournament();
-        setStatus(`順位を保存しました(${formatTime(Date.now())})`);
+        return true;
       } catch (error) {
-        podiumDraft.state = `保存に失敗しました: ${error.message}(もう一度選ぶと再保存します)`;
+        podiumDraft.state = `保存に失敗しました: ${error.message}`;
         podiumDraft.error = true;
         renderTournament();
-        setStatus(`保存に失敗しました: ${error.message}`, true);
+        return false;
+      }
+    }
+
+    // 最終決戦の「保存」ボタン: スコアと(三すくみのときの)順位をまとめて保存する
+    async function saveFinalAll() {
+      if (!isAdmin()) return;
+
+      setStatus("最終決戦を保存中…");
+      const scoresOk = await saveFinal();
+      const podiumOk = podiumDraft.dirty ? await savePodium() : true;
+
+      if (scoresOk && podiumOk && !podiumDraft.dirty) {
+        setDirty("FINAL", false);
+        setStatus(`最終決戦を保存しました(${formatTime(Date.now())})`);
+      } else {
+        setStatus("保存できていない内容があります。もう一度「保存」を押してください。", true);
       }
     }
 
@@ -1540,6 +1672,9 @@
     function logout(message = "") {
       adminToken = "";
       storeToken("");
+      dirtyKeys.clear();
+      podiumDraft.dirty = false;
+      podiumDraft.state = "";
       document.getElementById("admin-controls").hidden = true;
       renderTournament();
       showLogin(message);
@@ -1588,29 +1723,41 @@
     // ---------------------------------------------------------------
 
     document.getElementById("bracket-board").addEventListener("click", event => {
-      const button = event.target.closest("[data-refresh]");
-      if (button) refreshBlocks([button.dataset.refresh]);
+      const refresh = event.target.closest("[data-refresh]");
+      if (refresh) refreshBlocks([refresh.dataset.refresh]);
+
+      const save = event.target.closest("[data-save]");
+      if (save && isAdmin()) {
+        const block = save.dataset.save;
+        saveChain = saveChain.then(() => saveBlock(block));
+      }
     });
 
-    function onScoreChange(event) {
+    // 入力したら「未保存」の印を付ける(保存はボタンを押したときだけ)
+    function onScoreInput(event) {
       const input = event.target.closest(".score-input");
-      if (input && isAdmin()) {
-        if (input.dataset.block === "FINAL") scheduleFinalSave();
-        else scheduleSave(input.dataset.block);
-      }
+      if (input && isAdmin()) setDirty(input.dataset.block, true);
     }
 
-    document.getElementById("bracket-board").addEventListener("change", onScoreChange);
+    document.getElementById("bracket-board").addEventListener("input", onScoreInput);
+    document.getElementById("final-section").addEventListener("input", onScoreInput);
     document.getElementById("final-section").addEventListener("change", event => {
-      if (event.target.closest(".podium-select")) {
-        onPodiumChange();
-      } else {
-        onScoreChange(event);
-      }
+      if (event.target.closest(".podium-select")) onPodiumChange();
     });
 
     document.getElementById("final-section").addEventListener("click", event => {
       if (event.target.closest("[data-refresh-final]")) refreshFinal();
+      if (event.target.closest("[data-save-final]")) {
+        saveChain = saveChain.then(saveFinalAll);
+      }
+    });
+
+    // 未保存の入力があるままページを閉じる・移動しようとしたら確認する
+    window.addEventListener("beforeunload", event => {
+      if (dirtyKeys.size) {
+        event.preventDefault();
+        event.returnValue = "";
+      }
     });
 
     function refreshAll() {
