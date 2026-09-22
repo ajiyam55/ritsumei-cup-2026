@@ -204,7 +204,7 @@
 
     .final-matches {
       display: grid;
-      grid-template-columns: repeat(3, minmax(180px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 8px;
     }
 
@@ -403,6 +403,17 @@
       min-height: 1.2em;
       color: #b3261e;
       font-size: 0.8rem;
+    }
+
+    .login-back {
+      justify-self: center;
+      color: var(--muted);
+      font-size: 0.82rem;
+      text-decoration: none;
+    }
+
+    .login-back:hover {
+      text-decoration: underline;
     }
 
     /* ---- トーナメント本体 ---- */
@@ -786,8 +797,9 @@
         grid-template-columns: 1fr;
       }
 
-      /* 狭い画面では横にスクロールして読めるようにする */
-      .block {
+      /* 狭い画面では横にスクロールして読めるようにする。
+         見出し(更新・保存ボタン)はスクロールの外に置き、常に右上に見えるようにする */
+      .rounds-scroll {
         overflow-x: auto;
       }
 
@@ -828,7 +840,7 @@
     <header class="page-header">
       <div>
         <h1>決勝トーナメント</h1>
-        <p>各ブロックの予選勝者による決勝トーナメント</p>
+        <p>各コートの予選勝者による決勝トーナメント</p>
       </div>
       <div class="legend" aria-label="表示の凡例">
         <span><i></i>未確定</span>
@@ -836,14 +848,14 @@
       </div>
       <button id="refresh-all" class="refresh-button" type="button">すべて更新</button>
       <div id="admin-controls" class="admin-controls" hidden>
-        <span>スコアを入力したら、そのブロックの「保存」を押してください(自動では保存されません)。ほかの人が入力した内容を見るときや、編集を始める前は「更新」を押して最新にしてください。</span>
+        <span>スコアを入力したら、そのコートの「保存」を押してください(自動では保存されません)。ほかの人が入力した内容を見るときや、編集を始める前は「更新」を押して最新にしてください。</span>
         <button id="logout" type="button">ログアウト</button>
       </div>
     </header>
 
     <section id="podium-section" class="podium-section" aria-labelledby="podium-heading" hidden></section>
     <section id="final-section" class="final-section" aria-labelledby="final-heading"></section>
-    <section id="bracket-board" class="bracket-board" aria-label="各ブロック決勝トーナメント"></section>
+    <section id="bracket-board" class="bracket-board" aria-label="各コート決勝トーナメント"></section>
     <p id="api-status" class="status">トーナメントデータを読み込み中です。</p>
   </main>
 
@@ -856,6 +868,7 @@
         <input id="login-password" type="password" autocomplete="current-password" required>
       </label>
       <button id="login-button" type="submit">ログイン</button>
+      <a id="login-back" class="login-back" href="index.html" target="_top">← 戻る</a>
       <p id="login-error" class="login-error" role="alert"></p>
     </form>
   </div>
@@ -863,12 +876,12 @@
   <script>
     const BLOCKS = ["A", "B", "C"];
     const DEFAULT_BRACKET_SIZE = 16;
-    const TOURNAMENT_API_BASE_URL = "https://script.google.com/macros/s/AKfycbxvILecly2-0USLwyEVnumxpNwqb8HvDDR_LBzvmUmJXoNEJOR95eusY7q05yJNtGyfSg/exec";
+    const TOURNAMENT_API_BASE_URL = "https://script.google.com/macros/s/AKfycbxQfkrHAzo9BN3t4vpePMSFiijlAoHeTiPnUevdVItEkOUc-je7yCcKF7aip87Rm4XGPg/exec";
     const WANT_ADMIN = new URLSearchParams(window.location.search).get("admin") === "1";
     const TOKEN_KEY = "rrst_admin_token";
 
     // ログイン済みのときだけ値が入る。入力欄・自動保存は isAdmin() のときだけ有効
-    let adminToken = "RRST";
+    let adminToken = "";
     const isAdmin = () => WANT_ADMIN && Boolean(adminToken);
 
     function newBlockState() {
@@ -882,8 +895,15 @@
         loading: false,
         error: "",
         saving: false,
-        saveError: ""
+        saveError: "",
+        // シートが無いコート(将来AとBだけになったときのCなど)。true のときは表示から外す
+        missing: false
       };
+    }
+
+    // 表示・入力の対象になっているコート(シートが見つからないコートは除く)
+    function activeBlocks() {
+      return BLOCKS.filter(block => !tournamentData[block].missing);
     }
 
     const tournamentData = {
@@ -961,7 +981,7 @@
     // 決勝から数えて名前を付ける(枠数が変わっても正しい名前になる)
     function roundNames(bracketSize) {
       const total = Math.log2(bracketSize);
-      const fromEnd = ["決勝", "準決勝", "準々決勝"];
+      const fromEnd = ["準決勝", "準々決勝"]; // ブロック内は準決勝どまり(決勝は最終決戦で行う)
       return Array.from({ length: total }, (_, round) =>
         fromEnd[total - 1 - round] || `${round + 1}回戦`
       );
@@ -1037,7 +1057,7 @@
 
       return `<section class="block" data-block="${block}" aria-labelledby="block-${block}">
         <div class="block-heading">
-          <h2 id="block-${block}">${block}ブロック</h2>
+          <h2 id="block-${block}">${block}コート</h2>
           <div class="block-tools">
             <span class="updated">${updated}</span>
             <button type="button" class="refresh-button" data-refresh="${block}"${data.loading ? " disabled" : ""}>${data.loading ? "更新中…" : "更新"}</button>
@@ -1046,17 +1066,19 @@
         </div>
         ${isAdmin() ? `<p class="dirty-note" data-dirty-note="${block}">${dirtyKeys.has(block) ? "未保存の変更があります" : ""}</p>` : ""}
         ${blockNoteMarkup(data)}
-        <div class="rounds" style="--slot-count: ${bracketSize}; --round-count: ${names.length};">
-          ${names.map((name, round) => `
-            <div class="round">
-              <span class="round-label">${name}</span>
-              <div class="round-grid">
-                ${Array.from({ length: bracketSize / (2 ** (round + 1)) }, (_, index) =>
-                  matchMarkup(block, round, index + 1)
-                ).join("")}
+        <div class="rounds-scroll">
+          <div class="rounds" style="--slot-count: ${bracketSize}; --round-count: ${names.length};">
+            ${names.map((name, round) => `
+              <div class="round">
+                <span class="round-label">${name}</span>
+                <div class="round-grid">
+                  ${Array.from({ length: bracketSize / (2 ** (round + 1)) }, (_, index) =>
+                    matchMarkup(block, round, index + 1)
+                  ).join("")}
+                </div>
               </div>
-            </div>
-          `).join("")}
+            `).join("")}
+          </div>
         </div>
       </section>`;
     }
@@ -1113,18 +1135,30 @@
       </div>`;
     }
 
+    // 3コートなら「最終決戦」(総当たり3試合)、2コートなら「決勝・3位決定戦」の2試合に切り替える
     function finalMarkup() {
+      const active = activeBlocks();
+      const twoCourtMode = active.length === 2;
       const matches = tournamentData.finalMatches || [];
-      const isReady = matches.length === 3 && matches.every(match =>
-        match.red && match.red.name && match.blue && match.blue.name
-      );
       const finalData = tournamentData.final;
       const updated = finalData.updatedAt ? `更新 ${formatTime(finalData.updatedAt)}` : "未取得";
+      const title = twoCourtMode ? "決勝・3位決定戦" : "最終決戦";
 
-      return `<div class="final-heading">
-        <h2 id="final-heading">最終決戦</h2>
+      let subtitle;
+      if (twoCourtMode) {
+        subtitle = matches.length
+          ? `${active.join("・")}コート代表による決勝`
+          : `${active.length || 2}コートの代表決定後に組み合わせを表示`;
+      } else {
+        subtitle = matches.length === 3
+          ? "A・B・Cコート代表の総当たり"
+          : "3コートの代表決定後に組み合わせを表示";
+      }
+
+      const head = `<div class="final-heading">
+        <h2 id="final-heading">${title}</h2>
         <div class="block-tools">
-          <span>${isReady ? "A・B・Cブロック代表の総当たり" : "3ブロックの代表決定後に組み合わせを表示"}</span>
+          <span>${subtitle}</span>
           <span class="updated">${updated}</span>
           <button type="button" class="refresh-button" data-refresh-final${finalData.loading ? " disabled" : ""}>${finalData.loading ? "更新中…" : "更新"}</button>
           ${isAdmin() ? `<button type="button" class="save-button${dirtyKeys.has("FINAL") ? " is-dirty" : ""}" data-save-final${finalData.saving ? " disabled" : ""}>${finalData.saving ? "保存中…" : "保存"}</button>` : ""}
@@ -1132,17 +1166,35 @@
       </div>
       ${isAdmin() ? `<p class="dirty-note" data-dirty-note="FINAL">${dirtyKeys.has("FINAL") ? "未保存の変更があります" : ""}</p>` : ""}
       ${finalData.saveError ? `<p class="block-note is-error">保存に失敗しました: ${escapeHtml(finalData.saveError)}(入力内容は残っています。もう一度「保存」を押してください)</p>` : ""}
-      ${finalData.error ? `<p class="block-note is-error">取得できませんでした: ${escapeHtml(finalData.error)}</p>` : ""}
-      ${isReady ? `<div class="final-matches">
-        ${[0, 1, 2].map((index) => {
-          const match = matches[index] || {};
-          const options = { block: "FINAL", round: 0, matchIndex: index + 1, editable: true, disabled: finalData.saving };
-          return `<article class="match has-number">
-            <span class="match-number">最終第${index + 1}試合<span>スコア</span></span>
-            ${teamMarkup(match.red, { ...options, color: "red" })}
-            ${teamMarkup(match.blue, { ...options, color: "blue" })}
-          </article>`;
-        }).join("")}
+      ${finalData.error ? `<p class="block-note is-error">取得できませんでした: ${escapeHtml(finalData.error)}</p>` : ""}`;
+
+      function matchCard(match, index, label) {
+        const options = { block: "FINAL", round: 0, matchIndex: index, editable: true, disabled: finalData.saving };
+        return `<article class="match has-number">
+          <span class="match-number">${label}<span>スコア</span></span>
+          ${teamMarkup(match.red, { ...options, color: "red" })}
+          ${teamMarkup(match.blue, { ...options, color: "blue" })}
+        </article>`;
+      }
+
+      if (twoCourtMode) {
+        const decisive = matches[0];
+        const third = matches[1];
+        if (!decisive) {
+          return `${head}<p class="final-pending">${active.join("・")}の代表が決まると、ここに決勝を表示します。</p>`;
+        }
+        const cards = [matchCard(decisive, 1, "決勝")];
+        cards.push(third
+          ? matchCard(third, 2, "3位決定戦")
+          : `<p class="final-pending">両コートの準決勝で敗れた選手が決まると、3位決定戦を表示します。</p>`);
+        return `${head}<div class="final-matches">${cards.join("")}</div>`;
+      }
+
+      const isReady = matches.length === 3 && matches.every(match =>
+        match.red && match.red.name && match.blue && match.blue.name
+      );
+      return `${head}${isReady ? `<div class="final-matches">
+        ${[0, 1, 2].map((index) => matchCard(matches[index] || {}, index + 1, `最終第${index + 1}試合`)).join("")}
       </div>${tieMarkup()}` : `<p class="final-pending">A・B・Cの代表が全員決まると、ここに最終3試合を表示します。</p>`}`;
     }
 
@@ -1162,7 +1214,8 @@
         if (input === active) state.focus = key;
       });
       document.querySelectorAll(".block[data-block]").forEach(section => {
-        state.scroll[section.dataset.block] = section.scrollLeft;
+        const scrollEl = section.querySelector(".rounds-scroll") || section;
+        state.scroll[section.dataset.block] = scrollEl.scrollLeft;
       });
       return state;
     }
@@ -1174,7 +1227,8 @@
         if (key === state.focus) input.focus();
       });
       document.querySelectorAll(".block[data-block]").forEach(section => {
-        section.scrollLeft = state.scroll[section.dataset.block] || 0;
+        const scrollEl = section.querySelector(".rounds-scroll") || section;
+        scrollEl.scrollLeft = state.scroll[section.dataset.block] || 0;
       });
     }
 
@@ -1186,7 +1240,7 @@
       podiumSection.innerHTML = podium;
       podiumSection.hidden = !podium;
       document.getElementById("final-section").innerHTML = finalMarkup();
-      document.getElementById("bracket-board").innerHTML = BLOCKS
+      document.getElementById("bracket-board").innerHTML = activeBlocks()
         .map(blockMarkup)
         .join("");
       restoreViewState(state);
@@ -1199,10 +1253,12 @@
     }
 
     function updateStatus() {
-      const qualified = BLOCKS.filter(block => tournamentData[block].qualifier).length;
-      setStatus(qualified === 3
-        ? "A・B・Cの代表が確定し、最終戦を表示しています。"
-        : `代表確定: ${qualified}/3。最新の結果は各ブロック右上の「更新」ボタンで取得できます。`);
+      const active = activeBlocks();
+      const qualified = active.filter(block => tournamentData[block].qualifier).length;
+      const label = active.length === 2 ? "決勝・3位決定戦" : "最終戦";
+      setStatus(active.length > 0 && qualified === active.length
+        ? `${active.join("・")}の代表が確定し、${label}を表示しています。`
+        : `代表確定: ${qualified}/${active.length}。最新の結果は各コート右上の「更新」ボタンで取得できます。`);
     }
 
     // ---------------------------------------------------------------
@@ -1219,35 +1275,69 @@
 
     // A・B・Cの代表がそろったら総当たり3試合を作り、保存済みのスコアを反映する
     function finalMatchesFromQualifiers() {
-      const qualifiers = BLOCKS.map(block => tournamentData[block].qualifier);
+      const active = activeBlocks();
+      const qualifiers = active.map(block => tournamentData[block].qualifier);
       if (qualifiers.some(qualifier => !qualifier || !qualifier.name)) {
         return [];
       }
 
-      return [
-        [qualifiers[0], qualifiers[1]],
-        [qualifiers[1], qualifiers[2]],
-        [qualifiers[2], qualifiers[0]]
-      ].map((teams, index) => {
-        const red = { ...teams[0] };
-        const blue = { ...teams[1] };
-        const saved = tournamentData.final.rows.find(row => row.match === index + 1);
-        // 代表が入れ替わっていたら、古いスコアは使わない
-        const sameCard = saved && saved.redName === red.name && saved.blueName === blue.name;
-        let winner = false;
+      // 3コート: A・B・Cの代表による総当たり3試合
+      if (active.length === 3) {
+        return [
+          [qualifiers[0], qualifiers[1]],
+          [qualifiers[1], qualifiers[2]],
+          [qualifiers[2], qualifiers[0]]
+        ].map((teams, index) => buildFinalMatch(index + 1, teams[0], teams[1]));
+      }
 
-        if (sameCard) {
-          red.score = saved.redScore;
-          blue.score = saved.blueScore;
-          const color = winnerColor(saved.redScore, saved.blueScore);
-          if (color) {
-            winner = true;
-            (color === "red" ? red : blue).winner = true;
-          }
+      // 2コート: 決勝(代表どうし)と、3位決定戦(各コートの準決勝で敗れた側どうし)
+      if (active.length === 2) {
+        const matches = [buildFinalMatch(1, qualifiers[0], qualifiers[1])];
+        const runnerUps = active.map(courtRunnerUp);
+        if (runnerUps[0] && runnerUps[1]) {
+          matches.push(buildFinalMatch(2, runnerUps[0], runnerUps[1]));
         }
+        return matches;
+      }
 
-        return { round: null, match: index + 1, red, blue, winner };
-      });
+      return [];
+    }
+
+    // 保存済みのスコアを反映して1試合ぶんのデータを作る
+    function buildFinalMatch(matchNumber, redTeam, blueTeam) {
+      const red = { ...redTeam };
+      const blue = { ...blueTeam };
+      const saved = tournamentData.final.rows.find(row => row.match === matchNumber);
+      // 代表(または3位決定戦の相手)が入れ替わっていたら、古いスコアは使わない
+      const sameCard = saved && saved.redName === red.name && saved.blueName === blue.name;
+      let winner = false;
+
+      if (sameCard) {
+        red.score = saved.redScore;
+        blue.score = saved.blueScore;
+        const color = winnerColor(saved.redScore, saved.blueScore);
+        if (color) {
+          winner = true;
+          (color === "red" ? red : blue).winner = true;
+        }
+      }
+
+      return { round: null, match: matchNumber, red, blue, winner };
+    }
+
+    // そのコートの決勝(表示上は「準決勝」)で敗れた側。3位決定戦の対戦相手になる
+    function courtFinalMatch(block) {
+      const data = tournamentData[block];
+      if (!data || !data.matches || !data.matches.length) return null;
+      const finalRound = Math.log2(data.bracketSize || DEFAULT_BRACKET_SIZE) - 1;
+      return data.matches.find(match => match.round === finalRound) || null;
+    }
+
+    function courtRunnerUp(block) {
+      const match = courtFinalMatch(block);
+      if (!match || !match.winner) return null;
+      const loser = match.red && match.red.winner ? match.blue : match.red;
+      return loser && loser.name ? loser : null;
     }
 
     // ---------------------------------------------------------------
@@ -1270,12 +1360,30 @@
     }
 
     function finalStandings() {
+      const active = activeBlocks();
+
+      // 2コート: 決勝の勝者・敗者が1位・2位、3位決定戦の勝者が3位(すべて決まったら表示)
+      if (active.length === 2) {
+        const matches = tournamentData.finalMatches;
+        const decisive = matches[0];
+        const third = matches[1];
+        if (!decisive || !decisive.winner || !third || !third.winner) {
+          return { status: "waiting" };
+        }
+        const first = decisive.red.winner ? decisive.red : decisive.blue;
+        const second = decisive.red.winner ? decisive.blue : decisive.red;
+        const thirdPlace = third.red.winner ? third.red : third.blue;
+        return { status: "decided", order: [first, second, thirdPlace], source: "auto" };
+      }
+
+      if (active.length !== 3) return { status: "waiting" };
+
       const matches = tournamentData.finalMatches;
       if (matches.length !== 3 || !matches.every(match => match.winner)) {
         return { status: "waiting" };
       }
 
-      const teams = BLOCKS.map(block => tournamentData[block].qualifier);
+      const teams = active.map(block => tournamentData[block].qualifier);
       const wins = {};
       teams.forEach(team => { wins[teamKey(team)] = 0; });
       matches.forEach(match => {
@@ -1306,7 +1414,8 @@
         loading: false,
         error: "",
         saving: false,
-        saveError: ""
+        saveError: "",
+        missing: false
       };
     }
 
@@ -1383,7 +1492,7 @@
     async function refreshBlocks(blocks) {
       const unsaved = blocks.filter(block => dirtyKeys.has(block));
       if (unsaved.length) {
-        const ok = window.confirm(`${unsaved.join("・")}ブロックに未保存のスコアがあります。更新すると入力した内容は消えます。更新しますか?`);
+        const ok = window.confirm(`${unsaved.join("・")}コートに未保存のスコアがあります。更新すると入力した内容は消えます。更新しますか?`);
         if (ok) unsaved.forEach(discardEdits);
         else blocks = blocks.filter(block => !unsaved.includes(block));
       }
@@ -1397,8 +1506,13 @@
           applyLeagueData(block, await fetchLeague(block));
         } catch (error) {
           console.error(`Tournament API error (${block}):`, error);
-          tournamentData[block].loading = false;
-          tournamentData[block].error = error.message;
+          // シート自体が無い(将来コート数が減った場合)は、エラーにせず静かに非表示にする
+          if (/^Sheet not found for league:/.test(error.message)) {
+            tournamentData[block] = { ...newBlockState(), missing: true };
+          } else {
+            tournamentData[block].loading = false;
+            tournamentData[block].error = error.message;
+          }
         }
       }));
 
@@ -1473,7 +1587,7 @@
       const rows = collectScoreRows(block);
       tournamentData[block].saving = true;
       tournamentData[block].saveError = "";
-      setStatus(`${block}ブロックを保存中…`);
+      setStatus(`${block}コートを保存中…`);
       renderTournament();
 
       try {
@@ -1488,7 +1602,7 @@
         applyLeagueData(block, data.data);
         tournamentData.finalMatches = finalMatchesFromQualifiers();
         renderTournament();
-        setStatus(`${block}ブロックを保存し、勝ち上がりを反映しました(${formatTime(Date.now())})`);
+        setStatus(`${block}コートを保存し、勝ち上がりを反映しました(${formatTime(Date.now())})`);
       } catch (error) {
         tournamentData[block].saving = false;
         tournamentData[block].saveError = error.message;
