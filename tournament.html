@@ -313,6 +313,10 @@
       display: none;
     }
 
+    .dirty-note.is-error {
+      color: #b3261e;
+    }
+
     .score-input:disabled {
       background: #f3f0f1;
     }
@@ -431,12 +435,47 @@
     }
 
     .round-label {
-      display: block;
-      height: 14px;
-      color: var(--muted);
-      font-size: 0.62rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      height: 26px;
+      color: var(--ink);
+      font-size: 0.9rem;
       font-weight: bold;
-      text-align: center;
+      white-space: nowrap;
+    }
+
+    /* 何本先取か。ルールなので小さくても目に入るよう、色つきの丸いラベルにする */
+    .wins-badge {
+      display: inline-block;
+      padding: 1px 7px;
+      color: var(--primary);
+      background: #fbeff0;
+      border: 1px solid var(--primary-light);
+      border-radius: 999px;
+      font-size: 0.6rem;
+      font-weight: bold;
+      line-height: 1.4;
+      white-space: nowrap;
+    }
+
+    /* いつもと違う本数(通常は2本先取)のときは、塗りつぶして目立たせる */
+    .wins-badge.is-special {
+      color: #fff;
+      background: var(--primary);
+      border-color: var(--primary);
+    }
+
+    .final-title {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px 10px;
+    }
+
+    .final-title .wins-badge {
+      font-size: 0.66rem;
     }
 
     .round-grid {
@@ -807,6 +846,15 @@
         --link: 20px;
         min-width: calc(var(--round-count) * 128px);
       }
+
+      /* 列が細いので、先取は回戦名の下に出す(どの列も同じ高さにして線をそろえる) */
+      .round-label {
+        flex-direction: column;
+        justify-content: center;
+        gap: 1px;
+        height: 36px;
+        font-size: 0.82rem;
+      }
     }
 
     @media (max-width: 520px) {
@@ -920,6 +968,31 @@
     // 保存していない入力があるブロック("A"/"B"/"C"/"FINAL")
     const dirtyKeys = new Set();
 
+    // ---------------------------------------------------------------
+    // 何本先取か(ここを書き換えるだけで、各回戦の見出しの表示が変わります)
+    //   キーは回戦の名前。書いていない回戦は DEFAULT_WINS 本先取として表示します。
+    //   例: 今回は1回戦だけ1本先取 → "1回戦": 1
+    // ---------------------------------------------------------------
+    const DEFAULT_WINS = 2;
+    const WINS_NEEDED = {
+      "1回戦": 1,
+      "2回戦": 2,
+      "3回戦": 2, // 参加ブロックが多く、トーナメントが32枠になったときだけ出ます
+      "準々決勝": 2,
+      "準決勝": 2,
+      "最終戦": 2 // 最終決戦・決勝・3位決定戦
+    };
+
+    function winsNeeded(key) {
+      const wins = Number(WINS_NEEDED[key]);
+      return Number.isInteger(wins) && wins >= 1 ? wins : DEFAULT_WINS;
+    }
+
+    function winsBadge(key) {
+      const wins = winsNeeded(key);
+      return `<span class="wins-badge${wins !== DEFAULT_WINS ? " is-special" : ""}" title="${escapeHtml(key)}は${wins}本先取">${wins}本先取</span>`;
+    }
+
     const podiumDraft = { 1: "", 2: "", 3: "", dirty: false, state: "", error: false };
 
     // ---------------------------------------------------------------
@@ -969,7 +1042,7 @@
       const scoreMarkup = options.bye
         ? ""
         : isAdmin() && options.editable
-        ? `<input class="score-input" type="number" min="0" inputmode="numeric" data-block="${options.block}" data-round="${options.round}" data-match="${options.matchIndex}" data-color="${options.color}" value="${escapeHtml(score)}"${options.disabled ? " disabled" : ""}>`
+        ? `<input class="score-input" type="number" min="0" step="1" inputmode="numeric" data-block="${options.block}" data-round="${options.round}" data-match="${options.matchIndex}" data-color="${options.color}" value="${escapeHtml(score)}"${options.disabled ? " disabled" : ""}>`
         : `<span class="team-score">${score === "" ? "-" : escapeHtml(score)}</span>`;
 
       return `<div class="team${winner}">
@@ -1070,7 +1143,7 @@
           <div class="rounds" style="--slot-count: ${bracketSize}; --round-count: ${names.length};">
             ${names.map((name, round) => `
               <div class="round">
-                <span class="round-label">${name}</span>
+                <span class="round-label">${name}${winsBadge(name)}</span>
                 <div class="round-grid">
                   ${Array.from({ length: bracketSize / (2 ** (round + 1)) }, (_, index) =>
                     matchMarkup(block, round, index + 1)
@@ -1156,7 +1229,7 @@
       }
 
       const head = `<div class="final-heading">
-        <h2 id="final-heading">${title}</h2>
+        <div class="final-title"><h2 id="final-heading">${title}</h2>${winsBadge("最終戦")}</div>
         <div class="block-tools">
           <span>${subtitle}</span>
           <span class="updated">${updated}</span>
@@ -1585,6 +1658,11 @@
       if (!tournamentData[block].matches.length) return;
 
       const rows = collectScoreRows(block);
+      if (rows.some(row => !isValidScore(row.redScore) || !isValidScore(row.blueScore))) {
+        tournamentData[block].saveError = SCORE_RULE_MESSAGE;
+        renderTournament();
+        return;
+      }
       tournamentData[block].saving = true;
       tournamentData[block].saveError = "";
       setStatus(`${block}コートを保存中…`);
@@ -1641,6 +1719,11 @@
       if (!isAdmin() || !tournamentData.finalMatches.length) return true;
 
       const rows = collectFinalRows();
+      if (rows.some(row => !isValidScore(row.redScore) || !isValidScore(row.blueScore))) {
+        tournamentData.final.saveError = SCORE_RULE_MESSAGE;
+        renderTournament();
+        return false;
+      }
       tournamentData.final.saving = true;
       tournamentData.final.saveError = "";
       renderTournament();
@@ -1847,10 +1930,30 @@
       }
     });
 
+    // スコアは 0 以上の整数だけ(空欄は「未入力」)
+    function isValidScore(value) {
+      return value === "" || /^\d+$/.test(String(value));
+    }
+
+    const SCORE_RULE_MESSAGE = "スコアは0以上の整数で入力してください。";
+
+    // マイナス・小数などは入力できないようにする(キーボード入力の段階で止める)
+    document.addEventListener("keydown", event => {
+      if (!event.target.closest || !event.target.closest(".score-input")) return;
+      if (["-", "+", ".", ",", "e", "E"].includes(event.key)) event.preventDefault();
+    });
+
     // 入力したら「未保存」の印を付ける(保存はボタンを押したときだけ)
     function onScoreInput(event) {
       const input = event.target.closest(".score-input");
-      if (input && isAdmin()) setDirty(input.dataset.block, true);
+      if (!input || !isAdmin()) return;
+
+      // 貼り付けなどで 0 以上の整数でないものが入ったら、その欄を空にする
+      if (!isValidScore(input.value)) {
+        input.value = "";
+        setStatus(SCORE_RULE_MESSAGE, true);
+      }
+      setDirty(input.dataset.block, true);
     }
 
     document.getElementById("bracket-board").addEventListener("input", onScoreInput);
