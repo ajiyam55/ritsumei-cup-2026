@@ -988,6 +988,36 @@
       return Number.isInteger(wins) && wins >= 1 ? wins : DEFAULT_WINS;
     }
 
+    // ---------------------------------------------------------------
+    // 連打対策: 「更新」を押したあと数秒間は押せなくする(閲覧者のみ。管理者は対象外)
+    // ---------------------------------------------------------------
+    const REFRESH_COOLDOWN_MS = 5000;
+    const cooldownUntil = {}; // "A"/"B"/"C"/"FINAL"/"ALL" → 押せるようになる時刻
+
+    function inCooldown(key) {
+      return !isAdmin() && (cooldownUntil[key] || 0) > Date.now();
+    }
+
+    function syncRefreshAllButton() {
+      const button = document.getElementById("refresh-all");
+      if (!button) return;
+      const wait = inCooldown("ALL");
+      button.disabled = wait;
+      button.title = wait ? "連続で押せないよう、数秒お待ちください" : "";
+    }
+
+    function startCooldown(keys) {
+      if (isAdmin()) return;
+      const until = Date.now() + REFRESH_COOLDOWN_MS;
+      keys.forEach(key => { cooldownUntil[key] = until; });
+      syncRefreshAllButton();
+      renderTournament();
+      setTimeout(() => {
+        syncRefreshAllButton();
+        renderTournament();
+      }, REFRESH_COOLDOWN_MS + 50);
+    }
+
     function winsBadge(key) {
       const wins = winsNeeded(key);
       return `<span class="wins-badge${wins !== DEFAULT_WINS ? " is-special" : ""}" title="${escapeHtml(key)}は${wins}本先取">${wins}本先取</span>`;
@@ -1133,7 +1163,7 @@
           <h2 id="block-${block}">${block}コート</h2>
           <div class="block-tools">
             <span class="updated">${updated}</span>
-            <button type="button" class="refresh-button" data-refresh="${block}"${data.loading ? " disabled" : ""}>${data.loading ? "更新中…" : "更新"}</button>
+            <button type="button" class="refresh-button" data-refresh="${block}"${data.loading || inCooldown(block) ? " disabled" : ""}${inCooldown(block) ? ' title="連続で押せないよう、数秒お待ちください"' : ""}>${data.loading ? "更新中…" : "更新"}</button>
             ${isAdmin() ? `<button type="button" class="save-button${dirtyKeys.has(block) ? " is-dirty" : ""}" data-save="${block}"${data.saving ? " disabled" : ""}>${data.saving ? "保存中…" : "保存"}</button>` : ""}
           </div>
         </div>
@@ -1233,7 +1263,7 @@
         <div class="block-tools">
           <span>${subtitle}</span>
           <span class="updated">${updated}</span>
-          <button type="button" class="refresh-button" data-refresh-final${finalData.loading ? " disabled" : ""}>${finalData.loading ? "更新中…" : "更新"}</button>
+          <button type="button" class="refresh-button" data-refresh-final${finalData.loading || inCooldown("FINAL") ? " disabled" : ""}${inCooldown("FINAL") ? ' title="連続で押せないよう、数秒お待ちください"' : ""}>${finalData.loading ? "更新中…" : "更新"}</button>
           ${isAdmin() ? `<button type="button" class="save-button${dirtyKeys.has("FINAL") ? " is-dirty" : ""}" data-save-final${finalData.saving ? " disabled" : ""}>${finalData.saving ? "保存中…" : "保存"}</button>` : ""}
         </div>
       </div>
@@ -1536,7 +1566,7 @@
 
     async function refreshFinal() {
       if (dirtyKeys.has("FINAL")) {
-        if (!window.confirm("最終決戦に未保存の入力があります。更新すると入力した内容は消えます。更新しますか?")) return;
+        if (!window.confirm("最終決戦に未保存の入力があります。更新すると入力した内容は消えます。更新しますか?")) return false;
         discardEdits("FINAL");
       }
 
@@ -1559,6 +1589,7 @@
       }
 
       renderTournament();
+      return true;
     }
 
     // 指定ブロックだけ更新する(ボタンを押したときだけ通信する)
@@ -1569,7 +1600,7 @@
         if (ok) unsaved.forEach(discardEdits);
         else blocks = blocks.filter(block => !unsaved.includes(block));
       }
-      if (!blocks.length) return;
+      if (!blocks.length) return false;
 
       blocks.forEach(block => { tournamentData[block].loading = true; });
       renderTournament();
@@ -1592,6 +1623,7 @@
       tournamentData.finalMatches = finalMatchesFromQualifiers();
       renderTournament();
       updateStatus();
+      return true;
     }
 
     // ---------------------------------------------------------------
@@ -1921,7 +1953,12 @@
 
     document.getElementById("bracket-board").addEventListener("click", event => {
       const refresh = event.target.closest("[data-refresh]");
-      if (refresh) refreshBlocks([refresh.dataset.refresh]);
+      if (refresh) {
+        const block = refresh.dataset.refresh;
+        if (!inCooldown(block)) {
+          refreshBlocks([block]).then(done => { if (done) startCooldown([block]); });
+        }
+      }
 
       const save = event.target.closest("[data-save]");
       if (save && isAdmin()) {
@@ -1963,7 +2000,9 @@
     });
 
     document.getElementById("final-section").addEventListener("click", event => {
-      if (event.target.closest("[data-refresh-final]")) refreshFinal();
+      if (event.target.closest("[data-refresh-final]") && !inCooldown("FINAL")) {
+        refreshFinal().then(done => { if (done) startCooldown(["FINAL"]); });
+      }
       if (event.target.closest("[data-save-final]")) {
         saveChain = saveChain.then(saveFinalAll);
       }
@@ -1981,7 +2020,11 @@
       return Promise.all([refreshBlocks(BLOCKS), refreshFinal()]);
     }
 
-    document.getElementById("refresh-all").addEventListener("click", refreshAll);
+    document.getElementById("refresh-all").addEventListener("click", async () => {
+      if (inCooldown("ALL")) return;
+      const results = await refreshAll();
+      if (results.some(Boolean)) startCooldown(["ALL", ...BLOCKS, "FINAL"]);
+    });
 
     // ---------------------------------------------------------------
     // 長い名前: タップ(PCはカーソルを載せる)で全文を上に出す。ほかをタップすると消える
