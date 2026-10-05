@@ -76,6 +76,14 @@
       font-size: 0.9rem;
     }
 
+    /* 凡例と「すべて更新」をひとまとまりにして、右端に寄せる */
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-left: auto;
+    }
+
     .legend {
       display: flex;
       align-items: center;
@@ -890,11 +898,13 @@
         <h1>決勝トーナメント</h1>
         <p>各コートの予選勝者による決勝トーナメント</p>
       </div>
-      <div class="legend" aria-label="表示の凡例">
-        <span><i></i>未確定</span>
-        <span class="is-winner"><i></i>勝ち上がり</span>
+      <div class="header-right">
+        <div class="legend" aria-label="表示の凡例">
+          <span><i></i>未確定</span>
+          <span class="is-winner"><i></i>勝ち上がり</span>
+        </div>
+        <button id="refresh-all" class="refresh-button" type="button">すべて更新</button>
       </div>
-      <button id="refresh-all" class="refresh-button" type="button">すべて更新</button>
       <div id="admin-controls" class="admin-controls" hidden>
         <span>スコアを入力したら、そのコートの「保存」を押してください(自動では保存されません)。ほかの人が入力した内容を見るときや、編集を始める前は「更新」を押して最新にしてください。</span>
         <button id="logout" type="button">ログアウト</button>
@@ -924,7 +934,7 @@
   <script>
     const BLOCKS = ["A", "B", "C"];
     const DEFAULT_BRACKET_SIZE = 16;
-    const TOURNAMENT_API_BASE_URL = "https://script.google.com/macros/s/AKfycbxvILecly2-0USLwyEVnumxpNwqb8HvDDR_LBzvmUmJXoNEJOR95eusY7q05yJNtGyfSg/exec";
+    const TOURNAMENT_API_BASE_URL = "https://script.google.com/macros/s/AKfycbzMIoAz7LPLeWQppWyWpI7xNBYtr2vT9kIAzXDUifaOQnBTkW_HjQT3RmVWtY_nBZBs9A/exec";
     const WANT_ADMIN = new URLSearchParams(window.location.search).get("admin") === "1";
     const TOKEN_KEY = "rrst_admin_token";
 
@@ -2037,8 +2047,8 @@
     }
 
     function showNameTip(element) {
-      // 省略されていない名前では出さない
-      if (element.scrollWidth <= element.clientWidth + 1) {
+      // 省略されていない名前では出さない(端末差で1px前後ずれることがあるので少し余裕を持たせる)
+      if (element.scrollWidth <= element.clientWidth + 2) {
         hideNameTip();
         return;
       }
@@ -2054,18 +2064,44 @@
       nameTip.style.top = `${above >= 8 ? above : rect.bottom + 8}px`;
     }
 
+    // 名前の文字の上だけでなく、カードのどこを押しても反応するようにする。
+    // 名前の右の余白や、カードの端のすき間を押しても、見切れた名前なら出るようにするため。
+    // どちらの選手の行に近いかで判定する(カードのすき間は、どちらかの行の内側ではないので)。
+    function teamNameAt(event) {
+      if (event.target.closest(".score-input")) return null;
+      const card = event.target.closest(".match");
+      if (!card) return null;
+      const rows = [...card.querySelectorAll(".team")];
+      if (!rows.length) return null;
+
+      let best = rows[0];
+      let bestDistance = Infinity;
+      rows.forEach(row => {
+        const rect = row.getBoundingClientRect();
+        const distance = event.clientY < rect.top ? rect.top - event.clientY
+          : event.clientY > rect.bottom ? event.clientY - rect.bottom
+          : 0;
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          best = row;
+        }
+      });
+
+      return best.querySelector(".team-name");
+    }
+
     document.addEventListener("pointerover", event => {
       if (event.pointerType !== "mouse") return;
-      const element = event.target.closest(".team-name");
-      if (element) showNameTip(element);
+      const name = teamNameAt(event);
+      if (name) showNameTip(name);
     });
     document.addEventListener("pointerout", event => {
       if (event.pointerType !== "mouse") return;
-      if (event.target.closest(".team-name")) hideNameTip();
+      if (event.target.closest(".match")) hideNameTip();
     });
     document.addEventListener("click", event => {
-      const element = event.target.closest(".team-name");
-      if (element) showNameTip(element);
+      const name = teamNameAt(event);
+      if (name) showNameTip(name);
       else hideNameTip();
     });
     window.addEventListener("scroll", hideNameTip, true);

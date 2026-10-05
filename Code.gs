@@ -623,17 +623,30 @@ function nextBracketSize(entryCount) {
   return bracketSize;
 }
 
+// 大会でよく使われる「1位vs最下位、2位vs下から2番目…」という標準的な配置。
+// 不戦勝(シード)になる枠が、できるだけ分かれて配置されるので、
+// シード(不戦勝)どうしが2回戦でいきなり当たることを避けられる。
+function seedPositions(bracketSize) {
+  if (bracketSize === 1) return [1];
+  const prev = seedPositions(bracketSize / 2);
+  const positions = [];
+  prev.forEach(seed => {
+    positions.push(seed);
+    positions.push(bracketSize + 1 - seed);
+  });
+  return positions; // 添字(0始まり)がトーナメント表の枠番号、値が何番目の代表(1始まり)か
+}
+
 function seedEntrants(entrants, bracketSize) {
+  // 代表(ブロック代表)を上から順番(ブロック番号の若い順)に並べる
   const ordered = [...entrants].sort((left, right) => {
     return Number(left.seed || 999) - Number(right.seed || 999);
   });
-  const matchCount = bracketSize / 2;
+  const order = seedPositions(bracketSize);
   const slots = Array(bracketSize).fill(null);
 
-  ordered.forEach((entrant, index) => {
-    const side = Math.floor(index / matchCount);
-    const matchIndex = index % matchCount;
-    slots[matchIndex * 2 + side] = entrant;
+  order.forEach((rank, slotIndex) => {
+    slots[slotIndex] = ordered[rank - 1] || null;
   });
 
   return slots;
