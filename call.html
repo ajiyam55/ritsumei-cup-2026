@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>呼び出し画面 - 立命杯2026</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #7b1e24;
+      --ink: #242124;
+      --muted: #777176;
+      --line: #e3dcde;
+      --card-bg: #f7f4f5;
+      --red: #c0392b;
+      --blue: #2f6fd1;
+    }
+
+    html, body {
+      min-height: 100%;
+      background: #fff;
+      color: var(--ink);
+      font-family: "Yu Gothic", "Hiragino Kaku Gothic ProN", sans-serif;
+    }
+
+    body {
+      padding: 20px clamp(12px, 3vw, 28px) 40px;
+    }
+
+    .page {
+      width: min(1100px, 100%);
+      margin: 0 auto;
+    }
+
+    .next-match-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 8px 16px;
+      margin-bottom: 18px;
+    }
+
+    .next-match-head h1 {
+      font-size: 1.5rem;
+    }
+
+    .refresh-area {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-left: auto;
+    }
+
+    .last-updated {
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    .refresh-btn, .refresh-btn-mini {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 7px 14px;
+      color: var(--primary);
+      background: #fff;
+      border: 1.5px solid var(--primary);
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .refresh-btn-mini {
+      padding: 4px 10px;
+      font-size: 0.72rem;
+    }
+
+    .refresh-btn:disabled, .refresh-btn-mini:disabled {
+      opacity: 0.5;
+      cursor: progress;
+    }
+
+    .courts {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+
+    .court {
+      padding: 18px 14px 22px;
+      background: var(--card-bg);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      text-align: center;
+    }
+
+    .court-head {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      margin-bottom: 10px;
+    }
+
+    .court-head h2 {
+      font-size: 1.1rem;
+    }
+
+    .court-head .refresh-btn-mini {
+      position: absolute;
+      right: 0;
+    }
+
+    .nmsize {
+      font-size: 1.2rem;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+
+    .color-legend {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 10px;
+      font-size: 0.75rem;
+    }
+
+    .color-legend .vs {
+      color: var(--muted);
+    }
+
+    .label-red, .label-blue {
+      padding: 2px 10px;
+      color: #fff;
+      border-radius: 4px;
+      font-weight: bold;
+    }
+
+    .label-red { background: var(--red); }
+    .label-blue { background: var(--blue); }
+
+    .match-list {
+      margin-bottom: 14px;
+    }
+
+    .match-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      gap: 10px;
+      padding: 3px 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .match-row .match-index {
+      font-size: 0.75rem;
+      min-width: 1.2em;
+      text-align: right;
+    }
+
+    .match-row.is-current {
+      color: var(--ink);
+      font-size: 1.15rem;
+      font-weight: bold;
+    }
+
+    .match-row.is-current .match-index {
+      color: var(--primary);
+    }
+
+    .roster {
+      color: var(--muted);
+      font-size: 0.85rem;
+      line-height: 1.7;
+      margin-bottom: 16px;
+    }
+
+    .waiting-block {
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+    }
+
+    .waiting-label {
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    .waiting-roster {
+      font-size: 0.95rem;
+      font-weight: bold;
+      line-height: 1.7;
+      margin-bottom: 8px;
+    }
+
+    .waiting-match-list .match-row {
+      font-size: 0.78rem;
+    }
+
+    .empty-note, .court-error {
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    .court-error {
+      color: #b3261e;
+    }
+
+    @media (max-width: 520px) {
+      .courts {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="next-match-head">
+      <h1>次の試合(呼び出し画面)</h1>
+      <div class="refresh-area">
+        <span class="last-updated" id="last-updated">最終更新: —</span>
+        <button id="refresh-match-btn" class="refresh-btn" type="button">更新</button>
+      </div>
+    </div>
+    <div class="courts" id="courts"></div>
+  </main>
+
+  <script>
+    const API_BASE_URL = "https://script.google.com/macros/s/AKfycbz8yesZ53V9X9tbjxEaO6x_XkO8dmWDV1SL64NX8iKM3N7oGj-EiMabufa9ZNIVciHFEg/exec";
+    const COURTS = [
+      { key: "A", label: "Aコート" },
+      { key: "B", label: "Bコート" },
+      { key: "C", label: "Cコート" }
+    ];
+
+    let latestCourts = {};
+
+    function escapeHtml(value) {
+      return String(value == null ? "" : value).replace(/[&<>"']/g, char => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      }[char]));
+    }
+
+    function matchRowMarkup(bout, currentNum) {
+      const isCurrent = String(bout.num) === String(currentNum);
+      return `<p class="match-row${isCurrent ? " is-current" : ""}">
+        <span class="match-index">${escapeHtml(bout.num)}</span>
+        <span>${escapeHtml(bout.red.num || "?")}番 VS ${escapeHtml(bout.blue.num || "?")}番</span>
+      </p>`;
+    }
+
+    function rosterMarkup(entries) {
+      if (!entries.length) return "—";
+      return entries.map(entry => escapeHtml(entry)).join("<br>");
+    }
+
+    function courtMarkup(court, data) {
+      if (data.error) {
+        return `<div class="court">
+          <div class="court-head"><h2>${court.label}</h2></div>
+          <p class="court-error">取得できませんでした: ${escapeHtml(data.error)}</p>
+        </div>`;
+      }
+
+      if (!data.currentNum) {
+        return `<div class="court">
+          <div class="court-head"><h2>${court.label}</h2></div>
+          <p class="empty-note">現在の試合番号が設定されていません。</p>
+        </div>`;
+      }
+
+      const blockIndex = Math.ceil(Number(data.currentNum) / 3);
+      const rosterEntries = data.trioRoster.map(team => `${team.num}番 ${team.name}`);
+
+      return `<div class="court" data-court="${court.key.toLowerCase()}">
+        <div class="court-head">
+          <h2>${court.label}</h2>
+          <button class="refresh-btn-mini" type="button" data-court="${court.key}">更新</button>
+        </div>
+        <p class="nmsize">現在:第${escapeHtml(blockIndex)}ブロック</p>
+        <p class="color-legend"><span class="label-red">赤</span><span class="vs">VS</span><span class="label-blue">青</span></p>
+        <div class="match-list">${data.matches.map(bout => matchRowMarkup(bout, data.currentNum)).join("")}</div>
+        <p class="roster">${rosterMarkup(rosterEntries)}</p>
+        <div class="waiting-block">
+          <p class="waiting-label">待機</p>
+          <p class="waiting-roster">${rosterMarkup(data.waitingRoster)}</p>
+          <div class="waiting-match-list">${data.waitingMatches.map(bout => matchRowMarkup(bout, data.currentNum)).join("")}</div>
+        </div>
+      </div>`;
+    }
+
+    function render(courts) {
+      document.getElementById("courts").innerHTML = COURTS
+        .map(court => courtMarkup(court, courts[court.key] || { error: "データがありません" }))
+        .join("");
+    }
+
+    function formatTime(date) {
+      return date.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    }
+
+    async function fetchCourts() {
+      const url = new URL(API_BASE_URL);
+      url.searchParams.set("t", Date.now());
+      const response = await fetch(url.toString(), { cache: "no-store" });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = JSON.parse(await response.text());
+      if (data.error) throw new Error(data.error);
+      return data.courts || {};
+    }
+
+    async function loadAll() {
+      const button = document.getElementById("refresh-match-btn");
+      button.disabled = true;
+
+      try {
+        latestCourts = await fetchCourts();
+        render(latestCourts);
+        document.getElementById("last-updated").textContent = `最終更新: ${formatTime(new Date())}`;
+      } catch (error) {
+        console.error("次の試合の取得エラー:", error);
+        document.getElementById("last-updated").textContent = `取得エラー: ${error.message}`;
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    // 1コートぶんだけ取得し直す(他のコートの表示はそのまま)
+    async function loadOne(courtKey) {
+      const button = document.querySelector(`.refresh-btn-mini[data-court="${courtKey}"]`);
+      if (button) button.disabled = true;
+
+      try {
+        const courts = await fetchCourts();
+        latestCourts[courtKey] = courts[courtKey] || { error: "データがありません" };
+        render(latestCourts);
+        document.getElementById("last-updated").textContent = `最終更新: ${formatTime(new Date())}`;
+      } catch (error) {
+        console.error(`${courtKey}コートの取得エラー:`, error);
+      } finally {
+        if (button) button.disabled = false;
+      }
+    }
+
+    document.getElementById("refresh-match-btn").addEventListener("click", loadAll);
+    document.getElementById("courts").addEventListener("click", event => {
+      const button = event.target.closest(".refresh-btn-mini");
+      if (button) loadOne(button.dataset.court);
+    });
+
+    loadAll();
+  </script>
+</body>
+</html>

@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>バナー自動生成 - 立命杯2026</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #7b1e24;
+      --ink: #242124;
+      --muted: #777176;
+      --line: #e3dcde;
+    }
+
+    html, body {
+      min-height: 100%;
+      background: #fff;
+      color: var(--ink);
+      font-family: "Yu Gothic", "Hiragino Kaku Gothic ProN", sans-serif;
+    }
+
+    body {
+      padding: 20px clamp(12px, 3vw, 28px) 40px;
+    }
+
+    .page {
+      width: min(820px, 100%);
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 6px;
+    }
+
+    .notice {
+      color: var(--muted);
+      font-size: 0.85rem;
+      line-height: 1.7;
+      margin-bottom: 8px;
+    }
+
+    .notice strong {
+      color: var(--ink);
+    }
+
+    .status-line {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px 16px;
+      margin: 14px 0 22px;
+      padding: 10px 14px;
+      background: #f7f4f5;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      font-size: 0.85rem;
+    }
+
+    .status-line .dot {
+      display: inline-block;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #4caf50;
+    }
+
+    .status-line.is-paused .dot {
+      background: var(--muted);
+    }
+
+    .status-line .buttons {
+      margin-left: auto;
+      display: flex;
+      gap: 8px;
+    }
+
+    .pill-button {
+      padding: 6px 14px;
+      color: var(--primary);
+      background: #fff;
+      border: 1.5px solid var(--primary);
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .pill-button:disabled {
+      opacity: 0.5;
+      cursor: progress;
+    }
+
+    /* コート選択画面(?court= なしで開いたとき) */
+    .chooser {
+      display: grid;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .chooser a {
+      display: block;
+      padding: 18px;
+      text-align: center;
+      color: var(--primary);
+      background: #f7f4f5;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      text-decoration: none;
+    }
+
+    .court-block {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+    }
+
+    .court-block-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .court-block-head h2 {
+      font-size: 1.3rem;
+    }
+
+    .save-now {
+      margin-left: auto;
+      padding: 6px 14px;
+      color: var(--primary);
+      background: #fff;
+      border: 1.5px solid var(--primary);
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .save-now:disabled {
+      opacity: 0.5;
+      cursor: progress;
+    }
+
+    /* 実際に画像として書き出す「バナー」本体(画面下三分の一のテロップ想定) */
+    .banner {
+      width: 100%;
+      aspect-ratio: 1280 / 220;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: clamp(10px, 2.5vw, 30px);
+      padding: 0 clamp(16px, 3vw, 44px);
+      background: linear-gradient(90deg, rgba(36,33,36,0.94), rgba(36,33,36,0.8));
+      border-radius: 6px;
+      color: #fff;
+      font-size: clamp(1rem, 3.2vw, 1.8rem);
+      font-weight: bold;
+      overflow: hidden;
+    }
+
+    .banner .court-tag {
+      flex: 0 0 auto;
+      padding: 0.3em 0.7em;
+      background: var(--primary);
+      border-radius: 4px;
+      font-size: 0.7em;
+      white-space: nowrap;
+    }
+
+    .banner .round-tag {
+      flex: 0 0 auto;
+      color: #e7dfe0;
+      font-size: 0.55em;
+      white-space: nowrap;
+    }
+
+    .banner .team {
+      flex: 1 1 auto;
+      min-width: 0;
+      text-align: center;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .banner .team.red { color: #ff8a7a; }
+    .banner .team.blue { color: #86b6ff; }
+
+    .banner .vs {
+      flex: 0 0 auto;
+      color: #c8c1c3;
+      font-size: 0.55em;
+    }
+
+    .banner.is-empty {
+      color: #a8a2a6;
+      font-size: 1rem;
+      font-weight: normal;
+    }
+
+    .log-head {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin: 16px 0 6px;
+    }
+
+    .log-head h3 {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .log-head button {
+      margin-left: auto;
+    }
+
+    .log-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+    }
+
+    .log-table th, .log-table td {
+      padding: 4px 8px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+    }
+
+    .log-table th {
+      color: var(--muted);
+      font-weight: normal;
+    }
+
+    .log-empty {
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    @media (max-width: 640px) {
+      .banner {
+        aspect-ratio: 640 / 180;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page" id="page"></main>
+
+  <script>
+    const API_BASE_URL = "https://script.google.com/macros/s/AKfycbz8yesZ53V9X9tbjxEaO6x_XkO8dmWDV1SL64NX8iKM3N7oGj-EiMabufa9ZNIVciHFEg/exec";
+    const COURTS = {
+      A: { label: "Aコート" },
+      B: { label: "Bコート" },
+      C: { label: "Cコート" }
+    };
+    const POLL_MS = 5000;
+
+    const courtKey = new URLSearchParams(window.location.search).get("court");
+
+    function escapeHtml(value) {
+      return String(value == null ? "" : value).replace(/[&<>"']/g, char => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      }[char]));
+    }
+
+    // コート指定が無ければ、リングごとに開くための選択画面だけを出す
+    if (!courtKey || !COURTS[courtKey]) {
+      document.getElementById("page").innerHTML = `
+        <h1>バナー自動生成</h1>
+        <p class="notice">リングごとに別のパソコン・別のタブで開けるように、コートごとのページに分けています。該当するコートを選んでください。</p>
+        <div class="chooser">
+          ${Object.entries(COURTS).map(([key, court]) => `<a href="banner.html?court=${key}">${court.label}用を開く</a>`).join("")}
+        </div>
+      `;
+    } else {
+      runCourtPage(courtKey);
+    }
+
+    function runCourtPage(key) {
+      const label = COURTS[key].label;
+      document.title = `${label} バナー自動生成 - 立命杯2026`;
+      document.getElementById("page").innerHTML = `
+        <h1>${label} バナー自動生成</h1>
+        <p class="notice">
+          ${label}の試合が切り替わるたびに、下のバナー画像を自動でPNG保存します(動画編集で後から重ねて使う用)。
+          <strong>このタブを開いたまま、パソコンをスリープさせずに置いておいてください。</strong>
+          初回保存時にブラウザが「複数のファイルをダウンロードしますか」と聞いてくることがあるので、「許可」を選んでください。
+          画像は何時何分の試合かでファイル名が付きますが、下の表からも一覧と書き出しができます。
+        </p>
+        <div class="status-line" id="status-line">
+          <span class="dot" id="status-dot"></span>
+          <span id="status-text">読み込み中…</span>
+          <div class="buttons">
+            <button class="pill-button" id="toggle-button" type="button">一時停止</button>
+          </div>
+        </div>
+        <section class="court-block">
+          <div class="court-block-head">
+            <h2>${label}</h2>
+            <button class="save-now" type="button">今すぐ保存</button>
+          </div>
+          <div class="banner-holder" id="banner-holder"></div>
+        </section>
+        <div class="log-head">
+          <h3>この試合は何時何分から(新しい順)</h3>
+          <button class="pill-button" id="export-log-button" type="button">一覧をダウンロード</button>
+        </div>
+        <div id="log-area"></div>
+      `;
+
+      let running = true;
+      let lastMatchKey = "";
+      let firstLoadDone = false;
+      // 「何時何分から、どの試合だったか」を全部ここに溜めておく(書き出し用)
+      const history = [];
+
+      function teamName(team) {
+        if (!team || !team.name || team.name === "未設定") return "未設定";
+        return team.name;
+      }
+
+      function matchKeyOf(data) {
+        if (!data || data.error || !data.currentNum) return "";
+        const current = data.matches.find(m => String(m.num) === String(data.currentNum));
+        if (!current) return "";
+        return `${data.currentNum}:${teamName(current.red)}:${teamName(current.blue)}`;
+      }
+
+      function bannerMarkup(data) {
+        if (data.error || !data.currentNum) {
+          return `<div class="banner is-empty">現在の試合はまだありません</div>`;
+        }
+        const current = data.matches.find(m => String(m.num) === String(data.currentNum));
+        if (!current) return `<div class="banner is-empty">現在の試合はまだありません</div>`;
+        const blockIndex = Math.ceil(Number(data.currentNum) / 3);
+
+        return `<div class="banner">
+          <span class="court-tag">${escapeHtml(label)}</span>
+          <span class="round-tag">第${escapeHtml(blockIndex)}ブロック<br>第${escapeHtml(data.currentNum)}試合</span>
+          <span class="team red">${escapeHtml(teamName(current.red))}</span>
+          <span class="vs">VS</span>
+          <span class="team blue">${escapeHtml(teamName(current.blue))}</span>
+        </div>`;
+      }
+
+      function pad(n) { return String(n).padStart(2, "0"); }
+
+      function timestampForFilename(date) {
+        return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}_${pad(date.getHours())}-${pad(date.getMinutes())}-${pad(date.getSeconds())}`;
+      }
+
+      function renderLog() {
+        const area = document.getElementById("log-area");
+        if (!history.length) {
+          area.innerHTML = `<p class="log-empty">まだ記録がありません。</p>`;
+          return;
+        }
+        const rows = history.slice().reverse().map(entry => `<tr>
+          <td>${escapeHtml(entry.time)}</td>
+          <td>第${escapeHtml(entry.matchNum)}試合</td>
+          <td>${escapeHtml(entry.red)} VS ${escapeHtml(entry.blue)}</td>
+          <td>${entry.saved ? "保存済み" : "画像保存は失敗(時刻のみ記録)"}</td>
+        </tr>`).join("");
+        area.innerHTML = `<table class="log-table">
+          <thead><tr><th>開始時刻</th><th>試合</th><th>対戦</th><th>画像</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+      }
+
+      function exportLog() {
+        if (!history.length) return;
+        const lines = ["開始時刻,試合,赤,青,画像保存"]
+          .concat(history.map(e => [e.time, `第${e.matchNum}試合`, e.red, e.blue, e.saved ? "済" : "失敗"].join(",")));
+        const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `banner_log_${label}_${timestampForFilename(new Date())}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      // 今表示しているバナーをPNGとして書き出し、自動でダウンロードする。
+      // 画像の作成に失敗しても、「何時何分から始まったか」だけは記録を残す。
+      async function saveBanner(matchNum, red, blue) {
+        const time = new Date().toLocaleTimeString("ja-JP");
+        const entry = { time, matchNum, red, blue, saved: false };
+        history.push(entry);
+
+        const bannerEl = document.querySelector("#banner-holder .banner");
+        if (bannerEl && !bannerEl.classList.contains("is-empty") && typeof html2canvas === "function") {
+          try {
+            const canvas = await html2canvas(bannerEl, { backgroundColor: null, scale: 2 });
+            const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+            if (!blob) throw new Error("画像の作成に失敗しました");
+
+            const filename = `banner_${label}_${timestampForFilename(new Date())}.png`;
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+            entry.saved = true;
+          } catch (error) {
+            console.error("バナー画像の保存エラー:", error);
+          }
+        }
+        renderLog();
+      }
+
+      function setStatus(text, paused) {
+        document.getElementById("status-text").textContent = text;
+        document.getElementById("status-line").classList.toggle("is-paused", Boolean(paused));
+      }
+
+      async function poll() {
+        if (!running) return;
+
+        try {
+          const url = new URL(API_BASE_URL);
+          url.searchParams.set("t", Date.now());
+          const response = await fetch(url.toString(), { cache: "no-store" });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const data = JSON.parse(await response.text());
+          if (data.error) throw new Error(data.error);
+
+          const courtData = (data.courts || {})[key] || { error: "データがありません" };
+          document.getElementById("banner-holder").innerHTML = bannerMarkup(courtData);
+
+          const matchKey = matchKeyOf(courtData);
+          if (firstLoadDone && matchKey && matchKey !== lastMatchKey) {
+            const current = courtData.matches.find(m => String(m.num) === String(courtData.currentNum));
+            await saveBanner(courtData.currentNum, teamName(current.red), teamName(current.blue));
+          }
+          if (matchKey) lastMatchKey = matchKey;
+          firstLoadDone = true;
+          setStatus(`自動生成中(最終確認: ${new Date().toLocaleTimeString("ja-JP")})`, false);
+        } catch (error) {
+          console.error("バナー自動生成の取得エラー:", error);
+          setStatus(`取得エラー: ${error.message}`, false);
+        }
+      }
+
+      function updateVisibilityWarning() {
+        if (document.hidden) {
+          setStatus("裏のタブになっています。更新が遅れることがあります(開き直すとすぐ追いつきます)", true);
+        } else {
+          setStatus(running ? "自動生成中…" : "一時停止中(試合が変わっても保存されません)", !running);
+          poll();
+        }
+      }
+
+      renderLog();
+      poll();
+      setInterval(poll, POLL_MS);
+      document.addEventListener("visibilitychange", updateVisibilityWarning);
+
+      document.getElementById("toggle-button").addEventListener("click", event => {
+        running = !running;
+        event.target.textContent = running ? "一時停止" : "再開";
+        setStatus(running ? "自動生成中…" : "一時停止中(試合が変わっても保存されません)", !running);
+      });
+
+      document.querySelector(".save-now").addEventListener("click", async () => {
+        const button = document.querySelector(".save-now");
+        button.disabled = true;
+        const bannerEl = document.querySelector("#banner-holder .banner");
+        if (bannerEl && !bannerEl.classList.contains("is-empty")) {
+          const current = lastMatchKey.split(":");
+          await saveBanner(current[0] || "?", current[1] || "", current[2] || "");
+        }
+        button.disabled = false;
+      });
+
+      document.getElementById("export-log-button").addEventListener("click", exportLog);
+    }
+  </script>
+</body>
+</html>
