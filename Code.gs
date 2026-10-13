@@ -5,13 +5,43 @@ const LEAGUE_SHEETS = {
 };
 const MAX_PARTICIPANTS = 32;
 const BRACKET_SIZE = 32;
-const REPRESENTATIVE_RESULT_COLUMN = 5;
-const REPRESENTATIVE_NAME_COLUMN = 6;
+const REPRESENTATIVE_RESULT_COLUMN = 5; // F列(「残り0試合」など)
+const REPRESENTATIVE_NAME_COLUMN = 6;   // G列(代表の名前)
+const REPRESENTATIVE_LABEL_COLUMN = 4;  // E列(「第Nブロック代表」の表記)。この列だけを見て判定する
+
+// 今回のトーナメントで使わないブロック番号(シートに残っている予備・テスト用の行など)。
+// ここに挙げた番号は、ブロック自体を無いものとして扱う(参加人数にも枠にも数えない)。
+const IGNORED_BLOCK_IDS = { 14: true };
 const SCORE_SHEET_NAME = "FinalTournament";
+// 更新のたびに1行ずつ追記していく記録用シート(動画編集などの後作業で、
+// 「何時何分にどのスコアが入ったか」を振り返れるようにするための履歴)。
+// FinalTournament シートは保存のたびに書き換わるが、こちらは追記のみで消さない。
+const HISTORY_SHEET_NAME = "更新履歴";
+const HISTORY_HEADERS = [
+  "保存日時", "league", "round", "match",
+  "redNumber", "redName", "redScore",
+  "blueNumber", "blueName", "blueScore", "winner"
+];
 // 管理画面のパスワード。必ず推測されにくいものに変更してください。
 const ADMIN_TOKEN = "RRST";
 // 閲覧者が多いので、同じリーグの結果は少しの間キャッシュして返す(秒)
 const CACHE_SECONDS = 20;
+
+// ---------------------------------------------------------------
+// バナー画面(banner.html)の「試合が切り替わったタイミング」の記録
+//   banner.html にはログイン画面が無く、ページのソース(token含む)が
+//   誰でも見える状態なので、スコアを書き換えられる ADMIN_TOKEN とは
+//   別の、ログを1行追記することしかできない控えめな合言葉を使う。
+// ---------------------------------------------------------------
+const MATCHLOG_SHEET_NAME = "試合記録";
+const MATCHLOG_HEADERS = [
+  "記録日時", "コート", "ブロック", "試合番号",
+  "赤番号", "赤名前", "青番号", "青名前", "経過(分)"
+];
+// この大会の開始時刻(経過時間の計算用)。実際の開始時刻が変わったらここを直してください。
+const LEAGUE_START_TIME = "10:00";
+// banner.html専用の、ログ追記だけができる合言葉。ADMIN_TOKENとは必ず別の値にする。
+const BANNER_TOKEN = "banner-log-2026";
 
 // スコア保存シートの列。league 列を追加して、A/B/C を別々に管理する。
 const SCORE_HEADERS = [
@@ -30,6 +60,10 @@ function doGet(event) {
 
   if (mode === "final") {
     return getFinalData();
+  }
+
+  if (mode === "matchlog") {
+    return getMatchLog(event);
   }
 
   return getCurrentMatchData();
@@ -94,6 +128,47 @@ function getFinalData() {
   const payload = buildFinalPayload(SpreadsheetApp.getActiveSpreadsheet());
   putCache("FINAL", payload);
   return jsonOutput(payload);
+}
+
+// ---------------------------------------------------------------
+// バナー画面用:試合切り替えのタイミング記録(読み出し)
+// ---------------------------------------------------------------
+
+function getMatchLog(event) {
+  const court = event && event.parameter && event.parameter.court
+    ? String(event.parameter.court).trim().toUpperCase()
+    : "";
+
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = spreadsheet.getSheetByName(MATCHLOG_SHEET_NAME);
+  const rows = sheet ? readMatchLogRows(sheet) : [];
+  const filtered = court ? rows.filter(row => row.court === court) : rows;
+
+  return jsonOutput({ rows: filtered });
+}
+
+function readMatchLogRows(sheet) {
+  const values = sheet.getDataRange().getDisplayValues();
+  if (values.length < 2) return [];
+
+  const headers = values[0].map(header => String(header).trim());
+  return values
+    .slice(1)
+    .filter(row => row.some(value => String(value).trim() !== ""))
+    .map(row => {
+      const record = rowToObject(headers, row);
+      return {
+        time: record["記録日時"] || "",
+        court: String(record["コート"] || "").trim().toUpperCase(),
+        block: record["ブロック"] || "",
+        matchNum: record["試合番号"] || "",
+        redNumber: record["赤番号"] || "",
+        redName: record["赤名前"] || "",
+        blueNumber: record["青番号"] || "",
+        blueName: record["青名前"] || "",
+        elapsedMinutes: record["経過(分)"] || ""
+      };
+    });
 }
 
 function getTournamentData(event) {
@@ -373,6 +448,13 @@ function doPost(event) {
 
   try {
     const body = JSON.parse(event.postData.contents);
+
+    // バナー画面からの「試合が切り替わった」ログは、ADMIN_TOKENとは別の
+    // 控えめな合言葉で認証する(banner.htmlにはログイン画面が無いため)。
+    if (body.action === "logMatch") {
+      return appendMatchLog(body);
+    }
+
     if (body.token !== ADMIN_TOKEN) {
       return jsonOutput({ error: "Unauthorized" });
     }
@@ -397,6 +479,7 @@ function doPost(event) {
     const matches = Array.isArray(body.matches) ? body.matches : [];
 
     writeScoreSheet(sheet, league, matches);
+    appendHistory(spreadsheet, league, matches);
     SpreadsheetApp.flush();
 
     if (isFinalData) {
@@ -417,6 +500,97 @@ function doPost(event) {
   } finally {
     if (locked) lock.releaseLock();
   }
+}
+
+// バナー画面から送られてくる「試合が切り替わった」ログを1行追記する。
+// ADMIN_TOKENとは別のBANNER_TOKENで認証し、スコアには一切触れない。
+function appendMatchLog(body) {
+  if (body.token !== BANNER_TOKEN) {
+    return jsonOutput({ error: "Unauthorized" });
+  }
+
+  const lock = LockService.getScriptLock();
+  let locked = false;
+
+  try {
+    lock.waitLock(10000);
+    locked = true;
+
+    const court = String(body.court || "").trim().toUpperCase();
+    if (!court) return jsonOutput({ error: "court is required" });
+
+    const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = spreadsheet.getSheetByName(MATCHLOG_SHEET_NAME) ||
+      spreadsheet.insertSheet(MATCHLOG_SHEET_NAME);
+    if (sheet.getLastRow() === 0) {
+      sheet.getRange(1, 1, 1, MATCHLOG_HEADERS.length).setValues([MATCHLOG_HEADERS]);
+    }
+
+    // 直前の記録と同じコート・同じ試合番号なら、二重に追記しない
+    // (複数タブを開いていたり、ポーリングのタイミングが重なった場合の対策)
+    const lastRow = sheet.getLastRow();
+    if (lastRow > 1) {
+      const last = sheet.getRange(lastRow, 1, 1, MATCHLOG_HEADERS.length).getDisplayValues()[0];
+      if (String(last[1]).trim().toUpperCase() === court &&
+          String(last[3]).trim() === String(body.matchNum || "").trim()) {
+        return jsonOutput({ ok: true, skipped: true });
+      }
+    }
+
+    const now = new Date();
+    const timestamp = Utilities.formatDate(now, Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss");
+    const elapsedMinutes = elapsedMinutesSinceStart(now);
+
+    const row = [
+      timestamp,
+      court,
+      blankIfEmpty(body.block),
+      blankIfEmpty(body.matchNum),
+      blankIfEmpty(body.redNumber),
+      blankIfEmpty(body.redName),
+      blankIfEmpty(body.blueNumber),
+      blankIfEmpty(body.blueName),
+      elapsedMinutes
+    ];
+
+    sheet.getRange(sheet.getLastRow() + 1, 1, 1, MATCHLOG_HEADERS.length)
+      .setNumberFormat("@")
+      .setValues([row]);
+    SpreadsheetApp.flush();
+
+    return jsonOutput({ ok: true, elapsedMinutes });
+  } catch (error) {
+    return jsonOutput({ error: error.message });
+  } finally {
+    if (locked) lock.releaseLock();
+  }
+}
+
+// LEAGUE_START_TIME(例: "10:00")を基準にした経過分数。日付はスクリプト実行時の「今日」を使う。
+function elapsedMinutesSinceStart(now) {
+  const parts = String(LEAGUE_START_TIME).split(":");
+  const hours = Number(parts[0]) || 0;
+  const minutes = Number(parts[1]) || 0;
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0);
+  return Math.round((now.getTime() - start.getTime()) / 60000);
+}
+
+// 保存のたびに、その時刻とスコアを履歴シートへ1行ずつ追記する(消さずに積み上げる)
+function appendHistory(spreadsheet, league, matches) {
+  const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss");
+  const rows = matches
+    // 赤・青どちらのスコアも空の行(まだ何も入れていない枠)は記録しない
+    .filter(match => blankIfEmpty(match.redScore) !== "" || blankIfEmpty(match.blueScore) !== "")
+    .map(match => [timestamp, ...scoreRowValues(league, match)]);
+  if (!rows.length) return;
+
+  const sheet = spreadsheet.getSheetByName(HISTORY_SHEET_NAME) || spreadsheet.insertSheet(HISTORY_SHEET_NAME);
+  if (sheet.getLastRow() === 0) {
+    sheet.getRange(1, 1, 1, HISTORY_HEADERS.length).setValues([HISTORY_HEADERS]);
+  }
+  sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, HISTORY_HEADERS.length)
+    .setNumberFormat("@")
+    .setValues(rows);
 }
 
 function blankIfEmpty(value) {
@@ -511,6 +685,8 @@ function parseLeagueSheet(sheet) {
     if (!blockCell) return;
 
     const blockNumber = Number(normalizeText(blockCell).match(/第(\d+)ブロック/)[1]);
+    if (IGNORED_BLOCK_IDS[blockNumber]) return; // 使わないブロックは読み取らない
+
     const representativeRowIndex = findRepresentativeRow(values, rowIndex, blockNumber);
     const participantEnd = representativeRowIndex >= 0
       ? representativeRowIndex
@@ -584,8 +760,9 @@ function parseLeagueSheet(sheet) {
 }
 
 function representativeFromRow(row, blockNumber) {
+  // E列の表記だけを基準にする(ほかの列にたまたま同じ文字が入っていても代表とは判定しない)
   const label = `第${blockNumber}ブロック代表`;
-  const labelExists = row.some(value => normalizeText(value).includes(label));
+  const labelExists = normalizeText(row[REPRESENTATIVE_LABEL_COLUMN]).includes(label);
   if (!labelExists) return { name: "", confirmed: false };
 
   const name = (row[REPRESENTATIVE_NAME_COLUMN] || "").trim();
@@ -660,9 +837,10 @@ function normalizeText(value) {
 }
 
 function findRepresentativeRow(values, startIndex, blockNumber) {
+  // E列の表記だけを基準にする(他の列の文字列とは照合しない)
   const label = `第${blockNumber}ブロック代表`;
   for (let rowIndex = startIndex + 1; rowIndex < values.length; rowIndex += 1) {
-    if (values[rowIndex].some(value => normalizeText(value).includes(label))) return rowIndex;
+    if (normalizeText(values[rowIndex][REPRESENTATIVE_LABEL_COLUMN]).includes(label)) return rowIndex;
     if (rowIndex > startIndex + 1 && values[rowIndex].some(value => isBlockHeader(value))) break;
   }
   return -1;

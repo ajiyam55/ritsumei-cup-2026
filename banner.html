@@ -27,12 +27,36 @@
     }
 
     body {
-      padding: 20px clamp(12px, 3vw, 28px) 40px;
+      padding: 64px clamp(12px, 3vw, 28px) 40px;
     }
 
     .page {
       width: min(820px, 100%);
       margin: 0 auto;
+    }
+
+    .back-button {
+      position: fixed;
+      top: 16px;
+      left: 24px;
+      z-index: 10;
+      background-color: var(--primary);
+      color: white;
+      padding: 10px 18px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: bold;
+      box-shadow: 0 4px 12px rgb(65 25 28 / 18%);
+    }
+
+    .back-button:hover {
+      background-color: #a54c52;
+    }
+
+    @media (max-width: 520px) {
+      .back-button {
+        left: 14px;
+      }
     }
 
     h1 {
@@ -49,6 +73,14 @@
 
     .notice strong {
       color: var(--ink);
+    }
+
+    .switch-court-link {
+      display: inline-block;
+      margin-top: 4px;
+      color: var(--primary);
+      font-weight: bold;
+      text-decoration: underline;
     }
 
     .status-line {
@@ -221,8 +253,10 @@
       color: var(--muted);
     }
 
-    .log-head button {
+    .log-head .buttons {
       margin-left: auto;
+      display: flex;
+      gap: 8px;
     }
 
     .log-table {
@@ -255,10 +289,13 @@
   </style>
 </head>
 <body>
+  <a id="back-button" class="back-button" href="index.html" target="_top">← 戻る</a>
   <main class="page" id="page"></main>
 
   <script>
     const API_BASE_URL = "https://script.google.com/macros/s/AKfycbz8yesZ53V9X9tbjxEaO6x_XkO8dmWDV1SL64NX8iKM3N7oGj-EiMabufa9ZNIVciHFEg/exec";
+    // Code.gs 側の BANNER_TOKEN と同じ値にしてください(スコアを書き換えられる管理者パスワードとは別物)。
+    const BANNER_TOKEN = "banner-log-2026";
     const COURTS = {
       A: { label: "Aコート" },
       B: { label: "Bコート" },
@@ -293,10 +330,12 @@
       document.getElementById("page").innerHTML = `
         <h1>${label} バナー自動生成</h1>
         <p class="notice">
-          ${label}の試合が切り替わるたびに、下のバナー画像を自動でPNG保存します(動画編集で後から重ねて使う用)。
+          ${label}の試合が切り替わるたびに、その時刻(経過分つき)をスプレッドシートに記録します。
+          画像はその場ではダウンロードしません。<strong>すべての試合が終わったあと、下の「まとめてダウンロード」を押すと、
+          記録した試合ぶんのバナー画像をまとめて書き出せます。</strong>
           <strong>このタブを開いたまま、パソコンをスリープさせずに置いておいてください。</strong>
-          初回保存時にブラウザが「複数のファイルをダウンロードしますか」と聞いてくることがあるので、「許可」を選んでください。
-          画像は何時何分の試合かでファイル名が付きますが、下の表からも一覧と書き出しができます。
+          その場で画像が必要なときは「今すぐ保存」でいつでも1枚だけ書き出せます。
+          <br><a class="switch-court-link" href="banner.html">他のコートを選び直す</a>
         </p>
         <div class="status-line" id="status-line">
           <span class="dot" id="status-dot"></span>
@@ -314,7 +353,10 @@
         </section>
         <div class="log-head">
           <h3>この試合は何時何分から(新しい順)</h3>
-          <button class="pill-button" id="export-log-button" type="button">一覧をダウンロード</button>
+          <div class="buttons">
+            <button class="pill-button" id="batch-download-button" type="button">まとめてダウンロード</button>
+            <button class="pill-button" id="export-log-button" type="button">一覧をダウンロード(CSV)</button>
+          </div>
         </div>
         <div id="log-area"></div>
       `;
@@ -368,20 +410,23 @@
         }
         const rows = history.slice().reverse().map(entry => `<tr>
           <td>${escapeHtml(entry.time)}</td>
+          <td>${entry.elapsedMinutes === "" || entry.elapsedMinutes === undefined ? "—" : escapeHtml(entry.elapsedMinutes) + "分"}</td>
+          <td>第${escapeHtml(entry.block || "?")}ブロック</td>
           <td>第${escapeHtml(entry.matchNum)}試合</td>
           <td>${escapeHtml(entry.red)} VS ${escapeHtml(entry.blue)}</td>
-          <td>${entry.saved ? "保存済み" : "画像保存は失敗(時刻のみ記録)"}</td>
         </tr>`).join("");
         area.innerHTML = `<table class="log-table">
-          <thead><tr><th>開始時刻</th><th>試合</th><th>対戦</th><th>画像</th></tr></thead>
+          <thead><tr><th>開始時刻</th><th>経過</th><th>ブロック</th><th>試合</th><th>対戦</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>`;
       }
 
       function exportLog() {
         if (!history.length) return;
-        const lines = ["開始時刻,試合,赤,青,画像保存"]
-          .concat(history.map(e => [e.time, `第${e.matchNum}試合`, e.red, e.blue, e.saved ? "済" : "失敗"].join(",")));
+        const lines = ["開始時刻,経過(分),ブロック,試合,赤,青"]
+          .concat(history.map(e => [
+            e.time, e.elapsedMinutes, `第${e.block || "?"}ブロック`, `第${e.matchNum}試合`, e.red, e.blue
+          ].join(",")));
         const blob = new Blob([lines.join("\n")], { type: "text/csv" });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
@@ -393,35 +438,167 @@
         URL.revokeObjectURL(url);
       }
 
-      // 今表示しているバナーをPNGとして書き出し、自動でダウンロードする。
-      // 画像の作成に失敗しても、「何時何分から始まったか」だけは記録を残す。
-      async function saveBanner(matchNum, red, blue) {
-        const time = new Date().toLocaleTimeString("ja-JP");
-        const entry = { time, matchNum, red, blue, saved: false };
-        history.push(entry);
+      // サーバー(スプレッドシート)に積んである記録を読み直す。
+      // ページを開き直しても、それまでの記録が消えないようにするため。
+      async function loadPersistedLog() {
+        try {
+          const url = new URL(API_BASE_URL);
+          url.searchParams.set("mode", "matchlog");
+          url.searchParams.set("court", key);
+          url.searchParams.set("t", Date.now());
+          const response = await fetch(url.toString(), { cache: "no-store" });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const data = JSON.parse(await response.text());
+          if (data.error) throw new Error(data.error);
 
-        const bannerEl = document.querySelector("#banner-holder .banner");
-        if (bannerEl && !bannerEl.classList.contains("is-empty") && typeof html2canvas === "function") {
-          try {
-            const canvas = await html2canvas(bannerEl, { backgroundColor: null, scale: 2 });
-            const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
-            if (!blob) throw new Error("画像の作成に失敗しました");
-
-            const filename = `banner_${label}_${timestampForFilename(new Date())}.png`;
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = filename;
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            URL.revokeObjectURL(url);
-            entry.saved = true;
-          } catch (error) {
-            console.error("バナー画像の保存エラー:", error);
-          }
+          history.length = 0;
+          (data.rows || []).forEach(row => {
+            history.push({
+              time: row.time,
+              block: row.block,
+              matchNum: row.matchNum,
+              red: row.redName,
+              blue: row.blueName,
+              elapsedMinutes: row.elapsedMinutes
+            });
+          });
+          renderLog();
+        } catch (error) {
+          console.error("記録の取得エラー:", error);
         }
-        renderLog();
+      }
+
+      // 試合が切り替わったタイミングを、スプレッドシートへ1行追記する(画像はまだ作らない)。
+      async function logMatchChange(matchNum, blockIndex, current) {
+        try {
+          const response = await fetch(API_BASE_URL, {
+            method: "POST",
+            body: JSON.stringify({
+              action: "logMatch",
+              token: BANNER_TOKEN,
+              court: key,
+              block: blockIndex,
+              matchNum,
+              redNumber: (current.red && current.red.num) || "",
+              redName: teamName(current.red),
+              blueNumber: (current.blue && current.blue.num) || "",
+              blueName: teamName(current.blue)
+            })
+          });
+          const data = JSON.parse(await response.text());
+          if (data.error) throw new Error(data.error);
+
+          if (!data.skipped) {
+            history.push({
+              time: new Date().toLocaleTimeString("ja-JP"),
+              block: blockIndex,
+              matchNum,
+              red: teamName(current.red),
+              blue: teamName(current.blue),
+              elapsedMinutes: data.elapsedMinutes
+            });
+            renderLog();
+          }
+        } catch (error) {
+          console.error("試合記録の保存エラー:", error);
+        }
+      }
+
+      // 今表示しているバナーを、その場で1枚だけPNGとして書き出す(手動)。
+      async function captureCurrentBanner() {
+        const bannerEl = document.querySelector("#banner-holder .banner");
+        if (!bannerEl || bannerEl.classList.contains("is-empty")) return;
+        if (typeof html2canvas !== "function") {
+          alert("画像化ライブラリが読み込めていません。通信環境を確認してください。");
+          return;
+        }
+        try {
+          const canvas = await html2canvas(bannerEl, { backgroundColor: null, scale: 2 });
+          const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+          if (!blob) throw new Error("画像の作成に失敗しました");
+
+          const filename = `banner_${label}_now_${timestampForFilename(new Date())}.png`;
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          URL.revokeObjectURL(url);
+        } catch (error) {
+          console.error("バナー画像の保存エラー:", error);
+          alert("画像の保存に失敗しました。");
+        }
+      }
+
+      // 記録1件ぶんのバナーを画面外で組み立てて、画像として書き出す(まとめてダウンロード用)。
+      async function downloadHistoricalBanner(entry, index) {
+        const holder = document.createElement("div");
+        holder.style.position = "fixed";
+        holder.style.left = "-9999px";
+        holder.style.top = "0";
+        holder.style.width = "1280px";
+        holder.innerHTML = `<div class="banner">
+          <span class="court-tag">${escapeHtml(label)}</span>
+          <span class="round-tag">第${escapeHtml(entry.block || "?")}ブロック<br>第${escapeHtml(entry.matchNum || "?")}試合</span>
+          <span class="team red">${escapeHtml(entry.red)}</span>
+          <span class="vs">VS</span>
+          <span class="team blue">${escapeHtml(entry.blue)}</span>
+        </div>`;
+        document.body.appendChild(holder);
+
+        try {
+          const bannerEl = holder.querySelector(".banner");
+          const canvas = await html2canvas(bannerEl, { backgroundColor: null, scale: 2 });
+          const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+          if (!blob) throw new Error("画像の作成に失敗しました");
+
+          const safeTime = String(entry.time || "").replace(/[:\s]/g, "-");
+          const filename = `banner_${label}_${String(index + 1).padStart(3, "0")}_${safeTime}.png`;
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          URL.revokeObjectURL(url);
+        } finally {
+          holder.remove();
+        }
+      }
+
+      // 記録してある試合ぶんを、古い順にまとめて画像化してダウンロードする。
+      async function batchDownload() {
+        const button = document.getElementById("batch-download-button");
+        const original = button.textContent;
+        button.disabled = true;
+
+        try {
+          await loadPersistedLog();
+          if (!history.length) {
+            alert("まだ記録がありません。");
+            return;
+          }
+          if (typeof html2canvas !== "function") {
+            alert("画像化ライブラリが読み込めていません。通信環境を確認してください。");
+            return;
+          }
+
+          for (let i = 0; i < history.length; i += 1) {
+            button.textContent = `書き出し中… (${i + 1}/${history.length})`;
+            await downloadHistoricalBanner(history[i], i);
+            // ブラウザが連続ダウンロードをブロックしないよう、少し間を空ける
+            await new Promise(resolve => setTimeout(resolve, 400));
+          }
+        } catch (error) {
+          console.error("まとめてダウンロードのエラー:", error);
+          alert(`まとめてダウンロードに失敗しました: ${error.message}`);
+        } finally {
+          button.disabled = false;
+          button.textContent = original;
+        }
       }
 
       function setStatus(text, paused) {
@@ -446,11 +623,12 @@
           const matchKey = matchKeyOf(courtData);
           if (firstLoadDone && matchKey && matchKey !== lastMatchKey) {
             const current = courtData.matches.find(m => String(m.num) === String(courtData.currentNum));
-            await saveBanner(courtData.currentNum, teamName(current.red), teamName(current.blue));
+            const blockIndex = Math.ceil(Number(courtData.currentNum) / 3);
+            await logMatchChange(courtData.currentNum, blockIndex, current);
           }
           if (matchKey) lastMatchKey = matchKey;
           firstLoadDone = true;
-          setStatus(`自動生成中(最終確認: ${new Date().toLocaleTimeString("ja-JP")})`, false);
+          setStatus(`記録中(最終確認: ${new Date().toLocaleTimeString("ja-JP")})`, false);
         } catch (error) {
           console.error("バナー自動生成の取得エラー:", error);
           setStatus(`取得エラー: ${error.message}`, false);
@@ -461,34 +639,31 @@
         if (document.hidden) {
           setStatus("裏のタブになっています。更新が遅れることがあります(開き直すとすぐ追いつきます)", true);
         } else {
-          setStatus(running ? "自動生成中…" : "一時停止中(試合が変わっても保存されません)", !running);
+          setStatus(running ? "記録中…" : "一時停止中(試合が変わっても記録されません)", !running);
           poll();
         }
       }
 
       renderLog();
-      poll();
+      loadPersistedLog().then(poll);
       setInterval(poll, POLL_MS);
       document.addEventListener("visibilitychange", updateVisibilityWarning);
 
       document.getElementById("toggle-button").addEventListener("click", event => {
         running = !running;
         event.target.textContent = running ? "一時停止" : "再開";
-        setStatus(running ? "自動生成中…" : "一時停止中(試合が変わっても保存されません)", !running);
+        setStatus(running ? "記録中…" : "一時停止中(試合が変わっても記録されません)", !running);
       });
 
       document.querySelector(".save-now").addEventListener("click", async () => {
         const button = document.querySelector(".save-now");
         button.disabled = true;
-        const bannerEl = document.querySelector("#banner-holder .banner");
-        if (bannerEl && !bannerEl.classList.contains("is-empty")) {
-          const current = lastMatchKey.split(":");
-          await saveBanner(current[0] || "?", current[1] || "", current[2] || "");
-        }
+        await captureCurrentBanner();
         button.disabled = false;
       });
 
       document.getElementById("export-log-button").addEventListener("click", exportLog);
+      document.getElementById("batch-download-button").addEventListener("click", batchDownload);
     }
   </script>
 </body>
