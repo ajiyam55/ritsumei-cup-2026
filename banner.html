@@ -222,8 +222,12 @@
       min-width: 0;
       text-align: center;
       overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      white-space: normal;
+      word-break: break-word;
+      line-height: 1.15;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
     }
 
     .banner .team.red { color: #ff8a7a; }
@@ -293,7 +297,7 @@
   <main class="page" id="page"></main>
 
   <script>
-    const API_BASE_URL = "https://script.google.com/macros/s/AKfycbz8yesZ53V9X9tbjxEaO6x_XkO8dmWDV1SL64NX8iKM3N7oGj-EiMabufa9ZNIVciHFEg/exec";
+    const API_BASE_URL = "https://script.google.com/macros/s/AKfycbza6AIm125gIvvvr0OEUQdy0eqdDmj3rHG2u8MFfqwLMyuHmJCUAWTuXQMUmpRAMX28sw/exec";
     // Code.gs 側の BANNER_TOKEN と同じ値にしてください(スコアを書き換えられる管理者パスワードとは別物)。
     const BANNER_TOKEN = "banner-log-2026";
     const COURTS = {
@@ -394,6 +398,23 @@
           <span class="vs">VS</span>
           <span class="team blue">${escapeHtml(teamName(current.blue))}</span>
         </div>`;
+      }
+
+      // 名前が長くて枠からはみ出す/省略されるのを防ぐため、2行に収まるまでフォントサイズを自動で縮める
+      function fitBannerNames(bannerEl) {
+        if (!bannerEl) return;
+        bannerEl.querySelectorAll(".team").forEach(el => {
+          const lineHeightRatio = 1.15;
+          el.style.fontSize = "";
+          let fontSize = parseFloat(getComputedStyle(el).fontSize);
+          const minFontSize = Math.max(10, fontSize * 0.4);
+          for (let i = 0; i < 40; i++) {
+            const maxHeight = fontSize * lineHeightRatio * 2 + 1;
+            if (el.scrollHeight <= maxHeight || fontSize <= minFontSize) break;
+            fontSize -= 1;
+            el.style.fontSize = fontSize + "px";
+          }
+        });
       }
 
       function pad(n) { return String(n).padStart(2, "0"); }
@@ -550,6 +571,7 @@
 
         try {
           const bannerEl = holder.querySelector(".banner");
+          fitBannerNames(bannerEl);
           const canvas = await html2canvas(bannerEl, { backgroundColor: null, scale: 2 });
           const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
           if (!blob) throw new Error("画像の作成に失敗しました");
@@ -618,7 +640,9 @@
           if (data.error) throw new Error(data.error);
 
           const courtData = (data.courts || {})[key] || { error: "データがありません" };
-          document.getElementById("banner-holder").innerHTML = bannerMarkup(courtData);
+          const holderEl = document.getElementById("banner-holder");
+          holderEl.innerHTML = bannerMarkup(courtData);
+          fitBannerNames(holderEl.querySelector(".banner"));
 
           const matchKey = matchKeyOf(courtData);
           if (firstLoadDone && matchKey && matchKey !== lastMatchKey) {

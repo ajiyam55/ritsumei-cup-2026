@@ -417,17 +417,6 @@
       font-size: 0.8rem;
     }
 
-    .login-back {
-      justify-self: center;
-      color: var(--muted);
-      font-size: 0.82rem;
-      text-decoration: none;
-    }
-
-    .login-back:hover {
-      text-decoration: underline;
-    }
-
     /* ---- トーナメント本体 ---- */
 
     .rounds {
@@ -920,13 +909,13 @@
   <div id="name-tip" class="name-tip" role="tooltip" hidden></div>
 
   <div id="login" class="login" hidden>
+    <a href="index.html" target="_top" class="back-button">← 戻る</a>
     <form id="login-form" class="login-box">
       <h2>管理者ログイン</h2>
       <label>パスワード
         <input id="login-password" type="password" autocomplete="current-password" required>
       </label>
       <button id="login-button" type="submit">ログイン</button>
-      <a id="login-back" class="login-back" href="index.html" target="_top">← 戻る</a>
       <p id="login-error" class="login-error" role="alert"></p>
     </form>
   </div>
@@ -934,7 +923,7 @@
   <script>
     const BLOCKS = ["A", "B", "C"];
     const DEFAULT_BRACKET_SIZE = 16;
-    const TOURNAMENT_API_BASE_URL = "https://script.google.com/macros/s/AKfycbzMIoAz7LPLeWQppWyWpI7xNBYtr2vT9kIAzXDUifaOQnBTkW_HjQT3RmVWtY_nBZBs9A/exec";
+    const TOURNAMENT_API_BASE_URL = "https://script.google.com/macros/s/AKfycbza6AIm125gIvvvr0OEUQdy0eqdDmj3rHG2u8MFfqwLMyuHmJCUAWTuXQMUmpRAMX28sw/exec";
     const WANT_ADMIN = new URLSearchParams(window.location.search).get("admin") === "1";
     const TOKEN_KEY = "rrst_admin_token";
 
