@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>バナー自動生成 - 立命杯2026</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
     * {
       margin: 0;
@@ -51,6 +52,11 @@
 
     .back-button:hover {
       background-color: #a54c52;
+    }
+
+    /* 管理者ページのタブ内(iframe)で開いているときは、タブ列側に戻るボタンがあるので重複表示しない */
+    html.is-embedded .back-button {
+      display: none;
     }
 
     @media (max-width: 520px) {
@@ -187,16 +193,18 @@
     /* 実際に画像として書き出す「バナー」本体(画面下三分の一のテロップ想定) */
     .banner {
       width: 100%;
-      aspect-ratio: 1280 / 220;
+      max-width: 720px;
+      margin: 0 auto;
+      aspect-ratio: 720 / 260;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: clamp(10px, 2.5vw, 30px);
-      padding: 0 clamp(16px, 3vw, 44px);
+      gap: clamp(10px, 2.2vw, 26px);
+      padding: 0 clamp(16px, 3vw, 36px);
       background: linear-gradient(90deg, rgba(36,33,36,0.94), rgba(36,33,36,0.8));
       border-radius: 6px;
       color: #fff;
-      font-size: clamp(1rem, 3.2vw, 1.8rem);
+      font-size: clamp(1rem, 4vw, 2rem);
       font-weight: bold;
       overflow: hidden;
     }
@@ -287,13 +295,18 @@
 
     @media (max-width: 640px) {
       .banner {
-        aspect-ratio: 640 / 180;
+        aspect-ratio: 400 / 180;
       }
     }
   </style>
 </head>
 <body>
   <a id="back-button" class="back-button" href="index.html" target="_top">← 戻る</a>
+  <script>
+    if (window.self !== window.top) {
+      document.documentElement.classList.add("is-embedded");
+    }
+  </script>
   <main class="page" id="page"></main>
 
   <script>
@@ -336,7 +349,7 @@
         <p class="notice">
           ${label}の試合が切り替わるたびに、その時刻(経過分つき)をスプレッドシートに記録します。
           画像はその場ではダウンロードしません。<strong>すべての試合が終わったあと、下の「まとめてダウンロード」を押すと、
-          記録した試合ぶんのバナー画像をまとめて書き出せます。</strong>
+          記録した試合ぶんのバナー画像をまとめて1つのZIPファイルとして書き出せます。</strong>
           <strong>このタブを開いたまま、パソコンをスリープさせずに置いておいてください。</strong>
           その場で画像が必要なときは「今すぐ保存」でいつでも1枚だけ書き出せます。
           <br><a class="switch-court-link" href="banner.html">他のコートを選び直す</a>
@@ -553,8 +566,9 @@
         }
       }
 
-      // 記録1件ぶんのバナーを画面外で組み立てて、画像として書き出す(まとめてダウンロード用)。
-      async function downloadHistoricalBanner(entry, index) {
+      // 記録1件ぶんのバナーを画面外で組み立てて、画像(Blob)として作る(まとめてダウンロード用)。
+      // 1枚ずつダウンロードさせず、呼び出し元でZIPにまとめられるようblobとファイル名だけを返す。
+      async function renderHistoricalBannerBlob(entry, index) {
         const holder = document.createElement("div");
         holder.style.position = "fixed";
         holder.style.left = "-9999px";
@@ -578,14 +592,7 @@
 
           const safeTime = String(entry.time || "").replace(/[:\s]/g, "-");
           const filename = `banner_${label}_${String(index + 1).padStart(3, "0")}_${safeTime}.png`;
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement("a");
-          link.href = url;
-          link.download = filename;
-          document.body.appendChild(link);
-          link.click();
-          link.remove();
-          URL.revokeObjectURL(url);
+          return { blob, filename };
         } finally {
           holder.remove();
         }
@@ -607,13 +614,28 @@
             alert("画像化ライブラリが読み込めていません。通信環境を確認してください。");
             return;
           }
+          if (typeof JSZip !== "function") {
+            alert("圧縮ライブラリが読み込めていません。通信環境を確認してください。");
+            return;
+          }
 
+          const zip = new JSZip();
           for (let i = 0; i < history.length; i += 1) {
             button.textContent = `書き出し中… (${i + 1}/${history.length})`;
-            await downloadHistoricalBanner(history[i], i);
-            // ブラウザが連続ダウンロードをブロックしないよう、少し間を空ける
-            await new Promise(resolve => setTimeout(resolve, 400));
+            const { blob, filename } = await renderHistoricalBannerBlob(history[i], i);
+            zip.file(filename, blob);
           }
+
+          button.textContent = "ZIPを作成中…";
+          const zipBlob = await zip.generateAsync({ type: "blob" });
+          const zipUrl = URL.createObjectURL(zipBlob);
+          const link = document.createElement("a");
+          link.href = zipUrl;
+          link.download = `banner_${label}_${timestampForFilename(new Date())}.zip`;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          URL.revokeObjectURL(zipUrl);
         } catch (error) {
           console.error("まとめてダウンロードのエラー:", error);
           alert(`まとめてダウンロードに失敗しました: ${error.message}`);

@@ -58,6 +58,11 @@
       transform: translateY(-1px);
     }
 
+    /* 管理者ページのタブ内(iframe)で開いているときは、タブ列側に戻るボタンがあるので重複表示しない */
+    html.is-embedded .back-button {
+      display: none;
+    }
+
     .page-header {
       display: flex;
       align-items: end;
@@ -881,6 +886,13 @@
 </head>
 <body>
   <a href="index.html" target="_top" class="back-button">← 戻る</a>
+  <script>
+    // 管理者ページ(タブ切替)のiframe内で開いているときは、タブ列側に戻るボタンがあるので
+    // ページ内の戻るボタン(メイン情報に被って見づらい)は非表示にする。
+    if (window.self !== window.top) {
+      document.documentElement.classList.add("is-embedded");
+    }
+  </script>
   <main class="page">
     <header class="page-header">
       <div>
