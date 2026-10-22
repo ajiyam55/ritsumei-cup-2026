@@ -297,7 +297,18 @@
       return entries.map(entry => escapeHtml(entry)).join("<br>");
     }
 
+    // 連打・大人数の同時アクセス対策: 押したら一定時間は再度押せないようにする
+    // (ミニ更新ボタンはrender()のたびにDOMが丸ごと作り直されるので、
+    //  button.disabledだけでなく時刻ベースで管理してcourtMarkup側にも反映する)
+    const cooldownUntil = {}; // "A"/"B"/"C" → 押せるようになる時刻
+
+    function inCooldown(courtKey) {
+      return (cooldownUntil[courtKey] || 0) > Date.now();
+    }
+
     function courtMarkup(court, data) {
+      const miniDisabled = inCooldown(court.key) ? "disabled" : "";
+
       if (data.error) {
         return `<div class="court">
           <div class="court-head"><h2>${court.label}</h2></div>
@@ -318,7 +329,7 @@
       return `<div class="court" data-court="${court.key.toLowerCase()}">
         <div class="court-head">
           <h2>${court.label}</h2>
-          <button class="refresh-btn-mini" type="button" data-court="${court.key}">更新</button>
+          <button class="refresh-btn-mini" type="button" data-court="${court.key}" ${miniDisabled}>更新</button>
         </div>
         <p class="nmsize">現在:第${escapeHtml(blockIndex)}ブロック</p>
         <p class="color-legend"><span class="label-red">赤</span><span class="vs">VS</span><span class="label-blue">青</span></p>
@@ -352,8 +363,13 @@
       return data.courts || {};
     }
 
+    // 連打・大人数の同時アクセス対策: 押したら一定時間は再度押せないようにする
+    const REFRESH_COOLDOWN_MS = 5000;
+
     async function loadAll() {
       const button = document.getElementById("refresh-match-btn");
+      // 連打や、自動更新(10秒ごと)と手動更新が重なったときに、APIを二重に叩かないようにする
+      if (button.disabled) return;
       button.disabled = true;
 
       try {
@@ -364,14 +380,16 @@
         console.error("次の試合の取得エラー:", error);
         document.getElementById("last-updated").textContent = `取得エラー: ${error.message}`;
       } finally {
-        button.disabled = false;
+        setTimeout(() => { button.disabled = false; }, REFRESH_COOLDOWN_MS);
       }
     }
 
     // 1コートぶんだけ取得し直す(他のコートの表示はそのまま)
     async function loadOne(courtKey) {
-      const button = document.querySelector(`.refresh-btn-mini[data-court="${courtKey}"]`);
-      if (button) button.disabled = true;
+      // 連打したときにAPIを二重に叩かないようにする(時刻ベース。render()でボタンが
+      // 作り直されてもcooldownUntilは残るので、再描画後も無効のまま表示される)
+      if (inCooldown(courtKey)) return;
+      cooldownUntil[courtKey] = Date.now() + REFRESH_COOLDOWN_MS;
 
       try {
         const courts = await fetchCourts();
@@ -381,7 +399,8 @@
       } catch (error) {
         console.error(`${courtKey}コートの取得エラー:`, error);
       } finally {
-        if (button) button.disabled = false;
+        // クールダウンが明けたタイミングで、ボタンを押せる状態に再描画する
+        setTimeout(() => render(latestCourts), REFRESH_COOLDOWN_MS + 50);
       }
     }
 

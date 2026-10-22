@@ -26,6 +26,10 @@ const HISTORY_HEADERS = [
 const ADMIN_TOKEN = "RRST";
 // 閲覧者が多いので、同じリーグの結果は少しの間キャッシュして返す(秒)
 const CACHE_SECONDS = 20;
+// 「現在の試合」はcall.html/index.html/banner.htmlが頻繁にポーリングする一番アクセスが多いAPIなので、
+// 短めにキャッシュしてスプレッドシートへの直接アクセス回数を減らす(秒)
+const CURRENT_MATCH_CACHE_SECONDS = 5;
+const CURRENT_MATCH_CACHE_KEY = "current_match";
 
 // ---------------------------------------------------------------
 // バナー画面(banner.html)の「試合が切り替わったタイミング」の記録
@@ -320,6 +324,12 @@ function findQualifier(matches, bracketSize) {
 // ---------------------------------------------------------------
 
 function getCurrentMatchData() {
+  // 100人規模が同時にポーリングしても毎回シートを読みに行かないよう、短時間キャッシュする
+  const cached = CacheService.getScriptCache().get(CURRENT_MATCH_CACHE_KEY);
+  if (cached) {
+    return ContentService.createTextOutput(cached).setMimeType(ContentService.MimeType.JSON);
+  }
+
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const dataSheet = ss.getSheetByName("機体一覧");
   const statusSheet = ss.getSheetByName("現在の試合番号");
@@ -429,13 +439,22 @@ function getCurrentMatchData() {
     };
   }
 
-  return jsonOutput({
+  const payload = {
     courts: {
       A: buildCourt("A", currentA),
       B: buildCourt("B", currentB),
       C: buildCourt("C", currentC)
     }
-  });
+  };
+
+  try {
+    const text = JSON.stringify(payload);
+    if (text.length < 90000) {
+      CacheService.getScriptCache().put(CURRENT_MATCH_CACHE_KEY, text, CURRENT_MATCH_CACHE_SECONDS);
+    }
+  } catch (ignore) { /* キャッシュできなくても動く */ }
+
+  return jsonOutput(payload);
 }
 
 // ---------------------------------------------------------------
