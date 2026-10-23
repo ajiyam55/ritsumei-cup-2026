@@ -10,8 +10,16 @@ const REPRESENTATIVE_NAME_COLUMN = 6;   // G列(代表の名前)
 const REPRESENTATIVE_LABEL_COLUMN = 4;  // E列(「第Nブロック代表」の表記)。この列だけを見て判定する
 
 // 今回のトーナメントで使わないブロック番号(シートに残っている予備・テスト用の行など)。
-// ここに挙げた番号は、ブロック自体を無いものとして扱う(参加人数にも枠にも数えない)。
+// 通常は下のBLOCK_COUNT_SOURCEから自動で読み取るブロック数で足りているはずだが、
+// それでも取得できなかったとき(セルが空など)の保険として残しておく。
 const IGNORED_BLOCK_IDS = { 14: true };
+
+// 「機体一覧」シートに用意されている、リーグごとの試合数の自動集計セル。
+// 3人total当たり総当たり3試合になる形式なので、試合数÷3 = ブロック数として、
+// リーグ表の上から「その数ぶんだけ」ブロックを読み取る(ブロック14のような余りの行は
+// 自動的に無視される)。
+const BLOCK_COUNT_SOURCE_SHEET = "機体一覧";
+const BLOCK_COUNT_SOURCE_CELLS = { A: "G2", B: "H2", C: "I2" };
 const SCORE_SHEET_NAME = "FinalTournament";
 // 更新のたびに1行ずつ追記していく記録用シート(動画編集などの後作業で、
 // 「何時何分にどのスコアが入ったか」を振り返れるようにするための履歴)。
@@ -191,6 +199,22 @@ function getTournamentData(event) {
   return jsonOutput(payload);
 }
 
+// 「機体一覧」シートの自動集計セル(試合数)から、このリーグのブロック数を読み取る。
+// 取得できない(シートが無い/セルが空・数値でない)場合はnullを返し、呼び出し側で
+// 従来通りシートを上から全部スキャンする方式にフォールバックする。
+function getBlockCountFromSource(spreadsheet, league) {
+  const cellRef = BLOCK_COUNT_SOURCE_CELLS[league];
+  if (!cellRef) return null;
+
+  const sourceSheet = spreadsheet.getSheetByName(BLOCK_COUNT_SOURCE_SHEET);
+  if (!sourceSheet) return null;
+
+  const matchCount = Number(sourceSheet.getRange(cellRef).getValue());
+  if (!Number.isFinite(matchCount) || matchCount <= 0) return null;
+
+  return Math.floor(matchCount / 3);
+}
+
 function buildTournamentPayload(spreadsheet, league) {
   const sheet = spreadsheet.getSheetByName(LEAGUE_SHEETS[league]);
   if (!sheet) {
@@ -198,7 +222,9 @@ function buildTournamentPayload(spreadsheet, league) {
   }
 
   // 1. リーグシートから組み合わせ(1回戦)を作る
-  const result = parseLeagueSheet(sheet);
+  // ブロック数は「機体一覧」の自動集計セルを優先。取れなければ従来通りシートから判定する。
+  const blockCountOverride = getBlockCountFromSource(spreadsheet, league);
+  const result = parseLeagueSheet(sheet, blockCountOverride);
 
   // 2. FinalTournament シートから「このリーグの」スコアだけ読む
   const scoreSheet = spreadsheet.getSheetByName(SCORE_SHEET_NAME);
@@ -695,7 +721,7 @@ function rowToObject(headers, row) {
 // リーグシートの解析
 // ---------------------------------------------------------------
 
-function parseLeagueSheet(sheet) {
+function parseLeagueSheet(sheet, blockCountOverride) {
   const values = sheet.getDataRange().getDisplayValues();
   const blocks = [];
 
@@ -704,7 +730,15 @@ function parseLeagueSheet(sheet) {
     if (!blockCell) return;
 
     const blockNumber = Number(normalizeText(blockCell).match(/第(\d+)ブロック/)[1]);
-    if (IGNORED_BLOCK_IDS[blockNumber]) return; // 使わないブロックは読み取らない
+
+    // ブロック数が「機体一覧」から分かっているときは、その数より後ろのブロックは
+    // (余り・テスト用の行があっても)読み取らない。分からないときだけ従来通り
+    // IGNORED_BLOCK_IDSで個別に除外する。
+    if (blockCountOverride) {
+      if (blockNumber > blockCountOverride) return;
+    } else if (IGNORED_BLOCK_IDS[blockNumber]) {
+      return; // 使わないブロックは読み取らない
+    }
 
     const representativeRowIndex = findRepresentativeRow(values, rowIndex, blockNumber);
     const participantEnd = representativeRowIndex >= 0
@@ -736,7 +770,9 @@ function parseLeagueSheet(sheet) {
   // 代表が未定のブロックも枠は確保し(pending)、後から決まっても位置がずれない。
   const blockById = {};
   blocks.forEach(block => { blockById[block.id] = block; });
-  const blockCount = blocks.reduce((max, block) => Math.max(max, block.id), 0);
+  // 機体一覧から取れていればそれを正とする(シートにまだ代表行すら無いブロックも
+  // 枠としては確保できる)。取れていなければ、見つかった中で一番大きいブロック番号を使う。
+  const blockCount = blockCountOverride || blocks.reduce((max, block) => Math.max(max, block.id), 0);
   const entrants = [];
   const pendingBlocks = [];
 
