@@ -39,6 +39,13 @@ const CACHE_SECONDS = 20;
 const CURRENT_MATCH_CACHE_SECONDS = 5;
 const CURRENT_MATCH_CACHE_KEY = "current_match";
 
+// 「次の試合」欄の対戦カード(機体一覧シートから取ってきた名前・番号)を、
+// 試合開始前・終了後は伏せられるようにするためのオン/オフ。管理者ページの
+// 「呼び出し画面」タブにあるボタンで切り替える。PropertiesServiceに保存するので、
+// スプレッドシート側には何も残らない。
+const NEXT_MATCH_VISIBLE_PROPERTY = "nextMatchNamesVisible";
+const REDACTED_TEAM = { num: "?", name: "ー" };
+
 // ---------------------------------------------------------------
 // バナー画面(banner.html)の「試合が切り替わったタイミング」の記録
 //   banner.html にはログイン画面が無く、ページのソース(token含む)が
@@ -465,11 +472,13 @@ function getCurrentMatchData() {
     };
   }
 
+  const namesVisible = isNextMatchVisible();
   const payload = {
+    namesVisible,
     courts: {
-      A: buildCourt("A", currentA),
-      B: buildCourt("B", currentB),
-      C: buildCourt("C", currentC)
+      A: redactCourtIfNeeded(buildCourt("A", currentA), namesVisible),
+      B: redactCourtIfNeeded(buildCourt("B", currentB), namesVisible),
+      C: redactCourtIfNeeded(buildCourt("C", currentC), namesVisible)
     }
   };
 
@@ -481,6 +490,42 @@ function getCurrentMatchData() {
   } catch (ignore) { /* キャッシュできなくても動く */ }
 
   return jsonOutput(payload);
+}
+
+// 機体一覧シートの値(名前・番号)だけを伏せ字にする。第Nブロック・試合番号などの
+// 構造自体は変えない(「試合が始まる前と終わった後だけ名前を隠したい」という用途のため)。
+function redactCourtIfNeeded(court, namesVisible) {
+  if (namesVisible) return court;
+  if (!court || !court.currentNum) return court;
+
+  return {
+    currentNum: court.currentNum,
+    matches: court.matches.map(match => ({
+      num: match.num,
+      red: { ...REDACTED_TEAM },
+      blue: { ...REDACTED_TEAM },
+      current: match.current
+    })),
+    trioRoster: court.trioRoster.map(() => ({ num: "?", name: "ー", active: false })),
+    waitingRoster: court.waitingRoster.map(() => "?番 ー"),
+    waitingMatches: court.waitingMatches.map(match => ({
+      num: match.num,
+      red: { ...REDACTED_TEAM },
+      blue: { ...REDACTED_TEAM }
+    }))
+  };
+}
+
+function isNextMatchVisible() {
+  const stored = PropertiesService.getScriptProperties().getProperty(NEXT_MATCH_VISIBLE_PROPERTY);
+  // 未設定のとき(まだ一度も切り替えていないとき)は、今まで通り表示する
+  return stored === null ? true : stored === "true";
+}
+
+function setNextMatchVisible(visible) {
+  PropertiesService.getScriptProperties().setProperty(NEXT_MATCH_VISIBLE_PROPERTY, visible ? "true" : "false");
+  // 次のポーリングですぐ反映されるよう、短時間キャッシュを消しておく
+  CacheService.getScriptCache().remove(CURRENT_MATCH_CACHE_KEY);
 }
 
 // ---------------------------------------------------------------
@@ -507,6 +552,12 @@ function doPost(event) {
     // ログイン時のパスワード確認だけ
     if (body.action === "verify") {
       return jsonOutput({ ok: true });
+    }
+
+    // 「次の試合」欄の対戦カード(名前・番号)の表示/非表示切り替え
+    if (body.action === "setNextMatchVisible") {
+      setNextMatchVisible(Boolean(body.visible));
+      return jsonOutput({ ok: true, visible: Boolean(body.visible) });
     }
 
     const league = normalizeLeague(body.league);

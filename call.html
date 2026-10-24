@@ -114,6 +114,28 @@
       cursor: progress;
     }
 
+    /* 管理者ページ(?admin=1)のときだけ出す、対戦カードの表示/非表示チェックボックス(有効=表示) */
+    .visibility-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .visibility-toggle input {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+
+    .visibility-toggle.is-busy {
+      opacity: 0.5;
+      cursor: progress;
+    }
+
     .courts {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -261,15 +283,17 @@
     <div class="next-match-head">
       <h1>次の試合</h1>
       <div class="refresh-area">
+        <label id="visibility-toggle-wrap" class="visibility-toggle" hidden>
+          <input id="visibility-toggle" type="checkbox">有効
+        </label>
         <span class="last-updated" id="last-updated">最終更新: —</span>
-        <button id="refresh-match-btn" class="refresh-btn" type="button">更新</button>
       </div>
     </div>
     <div class="courts" id="courts"></div>
   </main>
 
   <script>
-    const API_BASE_URL = "https://script.google.com/macros/s/AKfycbz8yesZ53V9X9tbjxEaO6x_XkO8dmWDV1SL64NX8iKM3N7oGj-EiMabufa9ZNIVciHFEg/exec";
+    const API_BASE_URL = "https://script.google.com/macros/s/AKfycbzJVgRIG91ltQxs4NgWrV0QbGrtzoNknPADRy6zyoHmcGTPntnpjcKiVs5TJnQmnKs5Vw/exec";
     const COURTS = [
       { key: "A", label: "Aコート" },
       { key: "B", label: "Bコート" },
@@ -360,17 +384,18 @@
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = JSON.parse(await response.text());
       if (data.error) throw new Error(data.error);
+      if (typeof data.namesVisible === "boolean") syncVisibilityToggle(data.namesVisible);
       return data.courts || {};
     }
 
-    // 連打・大人数の同時アクセス対策: 押したら一定時間は再度押せないようにする
+    // 連打・大人数の同時アクセス対策: 呼び出したら一定時間は次の呼び出しを無視する
+    // (全体更新ボタンは廃止したが、自動更新(10秒ごと)同士が重ならないよう時刻ベースで管理)
     const REFRESH_COOLDOWN_MS = 5000;
+    let allCooldownUntil = 0;
 
     async function loadAll() {
-      const button = document.getElementById("refresh-match-btn");
-      // 連打や、自動更新(10秒ごと)と手動更新が重なったときに、APIを二重に叩かないようにする
-      if (button.disabled) return;
-      button.disabled = true;
+      if (allCooldownUntil > Date.now()) return;
+      allCooldownUntil = Date.now() + REFRESH_COOLDOWN_MS;
 
       try {
         latestCourts = await fetchCourts();
@@ -379,8 +404,6 @@
       } catch (error) {
         console.error("次の試合の取得エラー:", error);
         document.getElementById("last-updated").textContent = `取得エラー: ${error.message}`;
-      } finally {
-        setTimeout(() => { button.disabled = false; }, REFRESH_COOLDOWN_MS);
       }
     }
 
@@ -404,11 +427,67 @@
       }
     }
 
-    document.getElementById("refresh-match-btn").addEventListener("click", loadAll);
     document.getElementById("courts").addEventListener("click", event => {
       const button = event.target.closest(".refresh-btn-mini");
       if (button) loadOne(button.dataset.court);
     });
+
+    // ---------------------------------------------------------------
+    // 管理者ページ(?admin=1)のときだけ、対戦カード(名前・番号)表示の「有効」チェックボックスを出す。
+    // 参加者にもモニターで見える場所なので、ラベルは「有効」だけのシンプルなチェックボックスにする。
+    // トーナメント管理タブで既にログイン済みなら、そのトークンを(同一オリジンなので)
+    // そのまま使う。別途ログイン画面は作らない。
+    // ---------------------------------------------------------------
+    const WANT_ADMIN = new URLSearchParams(window.location.search).get("admin") === "1";
+    const ADMIN_TOKEN_STORAGE_KEY = "rrst_admin_token"; // tournament.htmlと同じキー
+
+    const visibilityToggleWrap = document.getElementById("visibility-toggle-wrap");
+    const visibilityToggle = document.getElementById("visibility-toggle");
+    let currentNamesVisible = null;
+    let visibilityToggleBusy = false;
+
+    function syncVisibilityToggle(namesVisible) {
+      currentNamesVisible = namesVisible;
+      if (!WANT_ADMIN) return;
+      visibilityToggleWrap.hidden = false;
+      visibilityToggle.checked = namesVisible;
+    }
+
+    if (WANT_ADMIN) {
+      visibilityToggle.addEventListener("change", async () => {
+        if (visibilityToggleBusy) return;
+        const token = sessionStorage.getItem(ADMIN_TOKEN_STORAGE_KEY);
+        if (!token) {
+          alert("先に「トーナメント管理」タブでログインしてください。");
+          visibilityToggle.checked = Boolean(currentNamesVisible);
+          return;
+        }
+
+        visibilityToggleBusy = true;
+        visibilityToggleWrap.classList.add("is-busy");
+        visibilityToggle.disabled = true;
+        const nextVisible = visibilityToggle.checked;
+
+        try {
+          const response = await fetch(API_BASE_URL, {
+            method: "POST",
+            body: JSON.stringify({ token, action: "setNextMatchVisible", visible: nextVisible })
+          });
+          const data = JSON.parse(await response.text());
+          if (data.error) throw new Error(data.error);
+          syncVisibilityToggle(Boolean(data.visible));
+          await loadAll();
+        } catch (error) {
+          console.error("表示切り替えエラー:", error);
+          alert(`切り替えに失敗しました: ${error.message}`);
+          visibilityToggle.checked = Boolean(currentNamesVisible);
+        } finally {
+          visibilityToggleBusy = false;
+          visibilityToggleWrap.classList.remove("is-busy");
+          visibilityToggle.disabled = false;
+        }
+      });
+    }
 
     loadAll();
     // 表示専用の画面で、開く人も少ない想定なので自動更新しておく
