@@ -90,7 +90,7 @@
       font-size: 0.85rem;
     }
 
-    .refresh-btn, .refresh-btn-mini {
+    .refresh-btn {
       display: inline-flex;
       align-items: center;
       gap: 5px;
@@ -104,12 +104,7 @@
       cursor: pointer;
     }
 
-    .refresh-btn-mini {
-      padding: 4px 10px;
-      font-size: 0.72rem;
-    }
-
-    .refresh-btn:disabled, .refresh-btn-mini:disabled {
+    .refresh-btn:disabled {
       opacity: 0.5;
       cursor: progress;
     }
@@ -160,11 +155,6 @@
 
     .court-head h2 {
       font-size: 1.1rem;
-    }
-
-    .court-head .refresh-btn-mini {
-      position: absolute;
-      right: 0;
     }
 
     .nmsize {
@@ -321,18 +311,7 @@
       return entries.map(entry => escapeHtml(entry)).join("<br>");
     }
 
-    // 連打・大人数の同時アクセス対策: 押したら一定時間は再度押せないようにする
-    // (ミニ更新ボタンはrender()のたびにDOMが丸ごと作り直されるので、
-    //  button.disabledだけでなく時刻ベースで管理してcourtMarkup側にも反映する)
-    const cooldownUntil = {}; // "A"/"B"/"C" → 押せるようになる時刻
-
-    function inCooldown(courtKey) {
-      return (cooldownUntil[courtKey] || 0) > Date.now();
-    }
-
     function courtMarkup(court, data) {
-      const miniDisabled = inCooldown(court.key) ? "disabled" : "";
-
       if (data.error) {
         return `<div class="court">
           <div class="court-head"><h2>${court.label}</h2></div>
@@ -347,13 +326,14 @@
         </div>`;
       }
 
-      const blockIndex = Math.ceil(Number(data.currentNum) / 3);
+      const blockIndex = currentNamesVisible === false
+        ? "ー"
+        : Math.ceil(Number(data.currentNum) / 3);
       const rosterEntries = data.trioRoster.map(team => `${team.num}番 ${team.name}`);
 
       return `<div class="court" data-court="${court.key.toLowerCase()}">
         <div class="court-head">
           <h2>${court.label}</h2>
-          <button class="refresh-btn-mini" type="button" data-court="${court.key}" ${miniDisabled}>更新</button>
         </div>
         <p class="nmsize">現在:第${escapeHtml(blockIndex)}ブロック</p>
         <p class="color-legend"><span class="label-red">赤</span><span class="vs">VS</span><span class="label-blue">青</span></p>
@@ -406,31 +386,6 @@
         document.getElementById("last-updated").textContent = `取得エラー: ${error.message}`;
       }
     }
-
-    // 1コートぶんだけ取得し直す(他のコートの表示はそのまま)
-    async function loadOne(courtKey) {
-      // 連打したときにAPIを二重に叩かないようにする(時刻ベース。render()でボタンが
-      // 作り直されてもcooldownUntilは残るので、再描画後も無効のまま表示される)
-      if (inCooldown(courtKey)) return;
-      cooldownUntil[courtKey] = Date.now() + REFRESH_COOLDOWN_MS;
-
-      try {
-        const courts = await fetchCourts();
-        latestCourts[courtKey] = courts[courtKey] || { error: "データがありません" };
-        render(latestCourts);
-        document.getElementById("last-updated").textContent = `最終更新: ${formatTime(new Date())}`;
-      } catch (error) {
-        console.error(`${courtKey}コートの取得エラー:`, error);
-      } finally {
-        // クールダウンが明けたタイミングで、ボタンを押せる状態に再描画する
-        setTimeout(() => render(latestCourts), REFRESH_COOLDOWN_MS + 50);
-      }
-    }
-
-    document.getElementById("courts").addEventListener("click", event => {
-      const button = event.target.closest(".refresh-btn-mini");
-      if (button) loadOne(button.dataset.court);
-    });
 
     // ---------------------------------------------------------------
     // 管理者ページ(?admin=1)のときだけ、対戦カード(名前・番号)表示の「有効」チェックボックスを出す。

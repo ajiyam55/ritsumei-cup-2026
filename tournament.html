@@ -1174,7 +1174,6 @@
           <h2 id="block-${block}">${block}コート</h2>
           <div class="block-tools">
             <span class="updated">${updated}</span>
-            <button type="button" class="refresh-button" data-refresh="${block}"${data.loading || inCooldown(block) ? " disabled" : ""}${inCooldown(block) ? ' title="連続で押せないよう、数秒お待ちください"' : ""}>${data.loading ? "更新中…" : "更新"}</button>
             ${isAdmin() ? `<button type="button" class="save-button${dirtyKeys.has(block) ? " is-dirty" : ""}" data-save="${block}"${data.saving ? " disabled" : ""}>${data.saving ? "保存中…" : "保存"}</button>` : ""}
           </div>
         </div>
