@@ -1,70 +1,178 @@
-// 出場機体一覧(index.html の <div id="entry-list"> の中に自動で並べる)
-// documents/ に 1.txt, 2.txt, 3.txt ... と「出場番号.txt」の名前で置くだけ(最大192まで)。
-// ファイルが無い番号は枠も作らない。1つも無ければセクションごと非表示。
-// API(Apps Script)は使わず、同じサイト内のファイルを読むだけなのでアクセスが増えても影響なし。
+// 出場機体一覧: CSVファイル1つを読み込んで、index.html の <div id="entry-list"> に表で表示する。
+// CSVは同じサイト内の静的ファイルを読むだけなので、Apps Script(API)は使わない。
+// 列(あるものだけ表示): 機体番号, 機体名, フリガナ, 操縦者名, 所属, 意気込み
+//   ・1行目が見出し(上の名前)なら、列の順番が違っても自動で合わせる
+//   ・見出しが無ければ、上の順番どおりとして読む
+//   ・文字コードはUTF-8でもExcel標準のShift_JISでも自動判定。"..." で囲んだ項目内のカンマ・改行もOK
+//   ・CSVが無い/空のときは、セクションごと非表示
 (function () {
   // ===== 設定 =====
-  const ENTRY_MAX = 192;                 // 探す番号の上限(1〜この番号まで探す)
-  const ENTRY_DIR = "documents/";        // 置き場所(index.htmlと同じ階層のdocumentsフォルダ。変わったらここだけ直す)
-  const EXTENSIONS = ["txt"];            // 探す拡張子。png等も使うなら ["svg","png"] のように足す(無い番号の探索が増える)
-  const FILE_NAME = (n) => String(n);    // ファイル名。2桁ゼロ埋めなら String(n).padStart(2, "0")
-  const MOBILE_WIDTH_PX = 720;           // スマホでの画像の幅(枠より広いと横スクロール)
-  const FRAME_MAX_HEIGHT = "75vh";       // 枠の高さ
+  const CSV_PATH = "documents/entries.csv"; // CSVの場所(index.htmlからの相対パス。変わったらここだけ直す)
+  const MOBILE_TABLE_WIDTH_PX = 560;        // スマホでの表の幅(枠より広いと横スクロール)
+  const FRAME_MAX_HEIGHT = "75vh";          // 枠の高さ
   // =================
+
+  const FIELDS = [
+    { key: "num", label: "出場番号", names: ["機体番号", "出場番号", "番号", "No", "No.", "ナンバー"] },
+    { key: "robot", label: "出場機体", names: ["機体名", "出場機体", "機体"] },
+    { key: "kana", label: "フリガナ", names: ["出場機体のフリガナ", "機体のフリガナ", "機体名フリガナ", "フリガナ", "ふりがな", "ヨミ"] },
+    { key: "pilot", label: "操縦者名", names: ["操縦者名", "操縦者", "操縦者氏名", "名前", "氏名"] },
+    { key: "team", label: "所属団体", names: ["所属団体", "所属", "団体", "チーム"] },
+    { key: "msg", label: "意気込み", names: ["意気込み", "コメント", "一言"] }
+  ];
 
   const root = document.getElementById("entry-list");
   if (!root) return;
   const section = root.closest("section") || root;
-  section.hidden = true; // 見つかるまで出さない
+  section.hidden = true;
 
   const style = document.createElement("style");
   style.textContent = `
     .entries-frame{max-height:${FRAME_MAX_HEIGHT};overflow:auto;border:1px solid #d4cdd0;border-radius:10px;background:#fff;-webkit-overflow-scrolling:touch}
     .entries-frame:focus-visible{outline:2px solid #7b1e24}
-    .entries-frame figure{margin:0;border-bottom:1px solid #eee}
-    .entries-frame figure:last-child{border-bottom:0}
-    .entries-frame img{display:block;height:auto;width:${MOBILE_WIDTH_PX}px;max-width:none}
+    .entries-table{border-collapse:collapse;width:${MOBILE_TABLE_WIDTH_PX}px;font-size:.9rem;line-height:1.5}
+    .entries-table th,.entries-table td{padding:8px 10px;border-bottom:1px solid #eee;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+    .entries-table thead th{position:sticky;top:0;background:#f4f0ee;color:#7b1e24;z-index:1;white-space:nowrap}
+    .entries-table td.num{font-weight:bold;white-space:nowrap;text-align:center}
+    .entries-table .kana{display:block;font-size:.72rem;color:#777176}
+    .entries-table .robot{font-weight:bold}
+    .entries-table td.msg{white-space:pre-wrap}
     @media (min-width:768px){
       .entries-frame{overflow-x:hidden}
-      .entries-frame img{width:100%;max-width:100%}
+      .entries-table{width:100%}
     }
   `;
+  style.textContent += "#entries[hidden]{display:none!important}";
   document.head.appendChild(style);
 
-  // 1つの番号について、実在する画像を探す(読み込めたimg要素 or null)
-  function probe(n) {
-    return new Promise((resolve) => {
-      let i = 0;
-      const img = new Image();
-      img.decoding = "async";
-      img.alt = `出場番号${n}`;
-      img.onload = () => resolve(img);
-      img.onerror = () => {
-        i += 1;
-        if (i < EXTENSIONS.length) img.src = `${ENTRY_DIR}${FILE_NAME(n)}.${EXTENSIONS[i]}`;
-        else resolve(null);
-      };
-      img.src = `${ENTRY_DIR}${FILE_NAME(n)}.${EXTENSIONS[0]}`;
-    });
+  // バイト列 → 文字列(UTF-8として読めなければShift_JIS)
+  function decode(buffer) {
+    try {
+      return new TextDecoder("utf-8", { fatal: true }).decode(buffer).replace(/^﻿/, "");
+    } catch (e) {
+      return new TextDecoder("shift_jis").decode(buffer);
+    }
   }
 
-  const tasks = [];
-  for (let n = 1; n <= ENTRY_MAX; n++) tasks.push(probe(n));
+  // CSV解析("..."内のカンマ・改行・"" に対応)
+  function parseCsv(text) {
+    const rows = [];
+    let row = [], cell = "", inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (inQuotes) {
+        if (c === '"') {
+          if (text[i + 1] === '"') { cell += '"'; i++; } else inQuotes = false;
+        } else cell += c;
+      } else if (c === '"') inQuotes = true;
+      else if (c === ",") { row.push(cell); cell = ""; }
+      else if (c === "\n" || c === "\r") {
+        if (c === "\r" && text[i + 1] === "\n") i++;
+        row.push(cell); cell = "";
+        rows.push(row); row = [];
+      } else cell += c;
+    }
+    if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+    return rows.filter((r) => r.some((v) => v.trim() !== ""));
+  }
 
-  Promise.all(tasks).then((imgs) => {
-    const found = imgs.filter(Boolean);
-    if (found.length === 0) return; // 1つも無ければセクションごと非表示のまま
+  // 見出し行から「どの列が何か」を決める。見出しが無ければ既定の順番。
+  function mapColumns(rows) {
+    const norm = (s) => s.trim().replace(/\s+/g, "");
+    const head = rows[0].map(norm);
+    const map = {};
+    FIELDS.forEach((f) => {
+      const idx = head.findIndex((h) => f.names.map(norm).includes(h));
+      if (idx >= 0) map[f.key] = idx;
+    });
+    if (Object.keys(map).length >= 2) return { map, body: rows.slice(1) }; // 見出しあり
+    const fallback = {};
+    FIELDS.forEach((f, i) => { fallback[f.key] = i; });
+    return { map: fallback, body: rows };
+  }
+
+  function td(className, text) {
+    const el = document.createElement("td");
+    if (className) el.className = className;
+    el.textContent = text;
+    return el;
+  }
+
+  function render(rows) {
+    const { map, body } = mapColumns(rows);
+    const get = (r, key) => (map[key] === undefined ? "" : (r[map[key]] || "").trim());
+    const items = body.map((r) => ({
+      num: get(r, "num"), robot: get(r, "robot"), kana: get(r, "kana"),
+      pilot: get(r, "pilot"), team: get(r, "team"), msg: get(r, "msg")
+    })).filter((it) => it.num || it.robot || it.pilot);
+    if (items.length === 0) return;
+
+    // 出場番号が数字なら番号順に並べる(CSVの並びが違っても揃う)
+    items.sort((a, b) => {
+      const x = parseFloat(a.num), y = parseFloat(b.num);
+      return Number.isNaN(x) || Number.isNaN(y) ? 0 : x - y;
+    });
+
+    // CSVに入っている列だけ表示する(例: フリガナ・操縦者・意気込みが空なら列ごと出さない)
+    const has = (key) => items.some((it) => it[key] !== "");
+    const showKana = has("kana"), showPilot = has("pilot"), showTeam = has("team"), showMsg = has("msg"), showNum = has("num");
+
+    const table = document.createElement("table");
+    table.className = "entries-table";
+    const thead = document.createElement("thead");
+    const hr = document.createElement("tr");
+    const heads = [];
+    if (showNum) heads.push("機体番号");
+    heads.push("機体名");
+    if (showPilot) heads.push("操縦者名");
+    if (showTeam) heads.push("所属");
+    if (showMsg) heads.push("意気込み");
+    heads.forEach((t) => {
+      const th = document.createElement("th");
+      th.textContent = t;
+      hr.appendChild(th);
+    });
+    thead.appendChild(hr);
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    items.forEach((it) => {
+      const tr = document.createElement("tr");
+      if (showNum) tr.appendChild(td("num", it.num));
+      const robotCell = document.createElement("td");
+      if (showKana && it.kana) {
+        const k = document.createElement("span");
+        k.className = "kana";
+        k.textContent = it.kana;
+        robotCell.appendChild(k);
+      }
+      const r = document.createElement("span");
+      r.className = "robot";
+      r.textContent = it.robot;
+      robotCell.appendChild(r);
+      tr.appendChild(robotCell);
+      if (showPilot) tr.appendChild(td("", it.pilot));
+      if (showTeam) tr.appendChild(td("", it.team));
+      if (showMsg) tr.appendChild(td("msg", it.msg));
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+
     const frame = document.createElement("div");
     frame.className = "entries-frame";
     frame.tabIndex = 0;
     frame.setAttribute("role", "region");
     frame.setAttribute("aria-label", "出場機体一覧");
-    found.forEach((img) => {
-      const figure = document.createElement("figure");
-      figure.appendChild(img);
-      frame.appendChild(figure);
-    });
+    frame.appendChild(table);
     root.appendChild(frame);
     section.hidden = false;
-  });
+  }
+
+  fetch(CSV_PATH, { cache: "no-cache" }) // 更新したら次回表示で反映(変更なしなら再ダウンロードしない)
+    .then((res) => { if (!res.ok) throw new Error("HTTP " + res.status); return res.arrayBuffer(); })
+    .then((buf) => {
+      const rows = parseCsv(decode(buf));
+      if (rows.length) render(rows);
+    })
+    .catch((err) => console.error("entries.csv の読み込みに失敗:", err));
 })();
