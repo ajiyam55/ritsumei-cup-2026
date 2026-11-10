@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>大会設定 - 立命杯2026</title>
+  <script src="settings.js?v=20261110"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --primary: #7b1e24;
+      --ink: #242124;
+      --muted: #777176;
+      --line: #e3dcde;
+      --card-bg: #f7f4f5;
+    }
+
+    html, body {
+      min-height: 100%;
+      background: #fff;
+      color: var(--ink);
+      font-family: "Yu Gothic", "Hiragino Kaku Gothic ProN", sans-serif;
+    }
+
+    body { padding: 64px clamp(12px, 3vw, 28px) 48px; }
+    .page { width: min(820px, 100%); margin: 0 auto; }
+
+    .back-button {
+      position: fixed; top: 16px; left: 24px; z-index: 10;
+      background: var(--primary); color: #fff; padding: 10px 18px;
+      border-radius: 8px; text-decoration: none; font-weight: bold;
+      box-shadow: 0 4px 12px rgb(65 25 28 / 18%);
+    }
+    .back-button:hover { background: #a54c52; }
+    html.is-embedded .back-button { display: none; }
+    html.is-embedded body { padding-top: 20px; }
+
+    h1 { font-size: 1.3rem; margin-bottom: 6px; }
+    h2 { font-size: 1.05rem; margin: 26px 0 10px; color: var(--primary); }
+    .lead { color: var(--muted); font-size: 0.9rem; line-height: 1.7; }
+
+    .card {
+      background: var(--card-bg); border: 1px solid var(--line);
+      border-radius: 12px; padding: 16px;
+    }
+
+    .field { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 8px 0; }
+    .field + .field { border-top: 1px solid var(--line); }
+    .field > label, .field > .label { flex: 0 0 9.5em; font-weight: bold; font-size: 0.92rem; }
+    .field .hint { flex-basis: 100%; margin-left: 0; color: var(--muted); font-size: 0.78rem; line-height: 1.6; }
+
+    input[type="date"], select {
+      min-height: 38px; padding: 4px 10px; font: inherit;
+      border: 1px solid #c9c0c3; border-radius: 8px; background: #fff;
+    }
+
+    .choice { display: inline-flex; align-items: center; gap: 6px; margin-right: 12px; cursor: pointer; }
+    .choice input { width: 18px; height: 18px; accent-color: var(--primary); }
+
+    .wins-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px 16px; width: 100%; }
+    .wins-grid label { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 0.9rem; }
+    .wins-grid .sub { display: block; color: var(--muted); font-size: 0.72rem; }
+
+    textarea {
+      width: 100%; min-height: 220px; padding: 12px; resize: vertical;
+      font: 0.85rem/1.6 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+      border: 1px solid #c9c0c3; border-radius: 8px; background: #fff; color: var(--ink);
+    }
+
+    .buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    button {
+      min-height: 40px; padding: 8px 18px; font: inherit; font-weight: bold;
+      color: #fff; background: var(--primary); border: 0; border-radius: 8px; cursor: pointer;
+    }
+    button:hover { background: #a54c52; }
+    button.secondary { color: var(--primary); background: #fff; border: 1px solid var(--primary); }
+    button.secondary:hover { background: #fbeff0; }
+
+    .status { margin-top: 8px; min-height: 1.4em; font-size: 0.85rem; color: var(--muted); }
+    .status.is-ok { color: #1b7a3d; }
+    .status.is-warn { color: #b3261e; }
+
+    .steps { margin: 0; padding-left: 1.4em; line-height: 1.9; font-size: 0.92rem; }
+    .steps li + li { margin-top: 4px; }
+    .steps code, .path {
+      padding: 1px 6px; background: #fff; border: 1px solid var(--line);
+      border-radius: 5px; font-size: 0.85em;
+    }
+    .note { margin-top: 10px; color: var(--muted); font-size: 0.8rem; line-height: 1.7; }
+    .published { font-size: 0.88rem; line-height: 1.8; }
+    .published b { color: var(--primary); }
+  </style>
+</head>
+<body>
+  <a href="index.html" target="_top" class="back-button">← 戻る</a>
+  <script>
+    if (window.self !== window.top) {
+      document.documentElement.classList.add("is-embedded");
+    }
+  </script>
+
+  <main class="page">
+    <h1>大会設定</h1>
+    <p class="lead">
+      回戦ごとの本数・開催日・コート数を決めて、設定の文章を作る画面です。
+      この画面では<b>保存されません</b>。作った文章を <span class="path">documents/settings.txt</span> に貼り付けると、
+      全ページに反映されます(通信はAPIを使わないので、アクセスが増えても影響しません)。
+    </p>
+
+    <h2>1. 設定する</h2>
+    <div class="card">
+      <div class="field">
+        <label for="event-date">開催日</label>
+        <input type="date" id="event-date">
+        <span class="hint">index.html の日付表示(「開催日」の目印をつけた場所)に使われます。</span>
+      </div>
+
+      <div class="field">
+        <span class="label">コート数</span>
+        <span>
+          <label class="choice"><input type="radio" name="courts" value="2">2コート(A・B)</label>
+          <label class="choice"><input type="radio" name="courts" value="3">3コート(A・B・C)</label>
+        </span>
+        <span class="hint">2コートにすると、Cコートは「次の試合」「呼び出し」「トーナメント表」から消えます。最終戦は決勝・3位決定戦になります。スプレッドシート側のリーグ表も2コート分にしてください。</span>
+      </div>
+
+      <div class="field">
+        <span class="label">何本先取か</span>
+        <div class="wins-grid" id="wins-grid"></div>
+        <span class="hint">回戦ごとに決めます(何試合目、のような細かい指定はできません)。出場ブロックが多く32枠になったときだけ「3回戦」が出ます。「最終戦」は最終決戦・決勝・3位決定戦です。</span>
+      </div>
+    </div>
+
+    <h2>2. 作られた設定の文章</h2>
+    <textarea id="output" readonly spellcheck="false" aria-label="作られた設定の文章"></textarea>
+    <div class="buttons">
+      <button type="button" id="copy-button">コピーする</button>
+      <button type="button" id="download-button" class="secondary">settings.txt としてダウンロード</button>
+    </div>
+    <p class="status" id="status" role="status"></p>
+
+    <h2>3. 反映のしかた(コピペ)</h2>
+    <div class="card">
+      <ol class="steps">
+        <li>上の「コピーする」を押す(またはダウンロードする)。</li>
+        <li>GitHubのリポジトリで、<span class="path">documents</span> フォルダの <span class="path">settings.txt</span> を開く。</li>
+        <li>鉛筆アイコン(編集)を押し、中身を<b>すべて消して貼り付け</b>る(ダウンロードしたファイルを使うときは、同じ名前でアップロードして上書き)。</li>
+        <li>「Commit changes」を押して保存する。</li>
+        <li>1〜2分ほど待ってから、各ページを開き直す(表示が変わらないときは、ブラウザの再読み込み)。</li>
+        <li>この画面を開き直して、下の「いま公開されている設定」が作った内容と同じになっていれば完了。</li>
+      </ol>
+      <p class="note">
+        カンマ(,)や引用符(")が消えると読み込めなくなり、初期値で動きます。うまくいかないときは、もう一度コピーして貼り直してください。
+        設定ファイルはどのページからも自動で読まれるので、HTMLを書き換える必要はありません。
+      </p>
+    </div>
+
+    <h2>いま公開されている設定</h2>
+    <div class="card published" id="published">読み込み中…</div>
+  </main>
+
+  <script>
+    var ROUND_ITEMS = [
+      { key: "1回戦", sub: "" },
+      { key: "2回戦", sub: "" },
+      { key: "3回戦", sub: "32枠のときだけ使用" },
+      { key: "準々決勝", sub: "" },
+      { key: "準決勝", sub: "" },
+      { key: "最終戦", sub: "最終決戦・決勝・3位決定戦" }
+    ];
+
+    var dateInput = document.getElementById("event-date");
+    var winsGrid = document.getElementById("wins-grid");
+    var output = document.getElementById("output");
+    var statusEl = document.getElementById("status");
+    var publishedEl = document.getElementById("published");
+    var publishedText = "";
+
+    function escapeHtml(value) {
+      return String(value == null ? "" : value).replace(/[&<>"']/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+      });
+    }
+
+    function buildWinsGrid() {
+      winsGrid.innerHTML = ROUND_ITEMS.map(function (item) {
+        return '<label><span>' + escapeHtml(item.key) +
+          (item.sub ? '<span class="sub">' + escapeHtml(item.sub) + '</span>' : '') +
+          '</span><select data-round="' + escapeHtml(item.key) + '">' +
+          [1, 2, 3].map(function (n) { return '<option value="' + n + '">' + n + '本先取</option>'; }).join("") +
+          '</select></label>';
+      }).join("");
+    }
+
+    function readForm() {
+      var courtsInput = document.querySelector('input[name="courts"]:checked');
+      var wins = {};
+      winsGrid.querySelectorAll("select").forEach(function (select) {
+        wins[select.dataset.round] = Number(select.value);
+      });
+      return {
+        eventDate: dateInput.value,
+        courts: courtsInput ? Number(courtsInput.value) : 3,
+        wins: wins
+      };
+    }
+
+    function writeForm(settings) {
+      dateInput.value = settings.eventDate;
+      var radio = document.querySelector('input[name="courts"][value="' + settings.courts + '"]');
+      if (radio) radio.checked = true;
+      winsGrid.querySelectorAll("select").forEach(function (select) {
+        var value = settings.wins[select.dataset.round];
+        // 4本先取以上など、このフォームにない値が入っていたら選択肢に足す
+        if (!select.querySelector('option[value="' + value + '"]')) {
+          select.insertAdjacentHTML("beforeend", '<option value="' + value + '">' + value + '本先取</option>');
+        }
+        select.value = String(value);
+      });
+    }
+
+    function generateText(settings) {
+      var lines = [
+        "{",
+        '  "eventDate": ' + JSON.stringify(settings.eventDate) + ",",
+        '  "courts": ' + settings.courts + ",",
+        '  "wins": {'
+      ];
+      var keys = ROUND_ITEMS.map(function (item) { return item.key; });
+      keys.forEach(function (key, index) {
+        lines.push("    " + JSON.stringify(key) + ": " + settings.wins[key] + (index < keys.length - 1 ? "," : ""));
+      });
+      lines.push("  }", "}");
+      return lines.join("\n") + "\n";
+    }
+
+    function summary(settings) {
+      var rounds = ROUND_ITEMS.map(function (item) {
+        return escapeHtml(item.key) + ": <b>" + settings.wins[item.key] + "本先取</b>";
+      }).join(" / ");
+      return "開催日: <b>" + escapeHtml(window.RRST_formatDate(settings.eventDate, "long") || settings.eventDate) + "</b><br>" +
+        "コート数: <b>" + settings.courts + "コート</b><br>" + rounds;
+    }
+
+    function setStatus(text, kind) {
+      statusEl.textContent = text;
+      statusEl.className = "status" + (kind ? " is-" + kind : "");
+    }
+
+    function refreshOutput() {
+      var settings = readForm();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(settings.eventDate)) {
+        output.value = "";
+        setStatus("開催日を入れてください。", "warn");
+        return;
+      }
+      var text = generateText(settings);
+      output.value = text;
+      if (publishedText && text.trim() === publishedText.trim()) {
+        setStatus("いま公開されている設定と同じです(変更なし)。", "ok");
+      } else {
+        setStatus(publishedText ? "いま公開されている設定から変わっています。コピーして貼り付けてください。" : "", "");
+      }
+    }
+
+    document.getElementById("copy-button").addEventListener("click", function () {
+      if (!output.value) return;
+      var done = function () { setStatus("コピーしました。GitHubの settings.txt に貼り付けてください。", "ok"); };
+      var fallback = function () {
+        output.select();
+        try { document.execCommand("copy"); done(); }
+        catch (e) { setStatus("コピーできませんでした。文章を選択して、手でコピーしてください。", "warn"); }
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(output.value).then(done, fallback);
+      } else {
+        fallback();
+      }
+    });
+
+    document.getElementById("download-button").addEventListener("click", function () {
+      if (!output.value) return;
+      var blob = new Blob([output.value], { type: "text/plain;charset=utf-8" });
+      var link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "settings.txt";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(function () { URL.revokeObjectURL(link.href); }, 1000);
+      setStatus("settings.txt をダウンロードしました。documents フォルダに同じ名前でアップロードしてください。", "ok");
+    });
+
+    dateInput.addEventListener("input", refreshOutput);
+    document.querySelectorAll('input[name="courts"]').forEach(function (radio) {
+      radio.addEventListener("change", refreshOutput);
+    });
+    winsGrid.addEventListener("change", refreshOutput);
+
+    buildWinsGrid();
+    writeForm(window.RRST_DEFAULT_SETTINGS);
+    refreshOutput();
+
+    // 公開中の設定を読み、フォームの初期値にする(ファイルが無いときは初期値のまま)
+    window.RRST_SETTINGS_READY.then(function (settings) {
+      writeForm(settings);
+      if (window.RRST_SETTINGS_LOADED) {
+        publishedText = generateText(settings);
+        publishedEl.innerHTML = summary(settings);
+      } else {
+        publishedEl.innerHTML = "<b>settings.txt が見つからない、または読めません。</b>いまは初期値で動いています。<br>" + summary(settings);
+      }
+      refreshOutput();
+    });
+  </script>
+</body>
+</html>

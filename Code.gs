@@ -57,8 +57,9 @@ const MATCHLOG_HEADERS = [
   "記録日時", "コート", "ブロック", "試合番号",
   "赤番号", "赤名前", "青番号", "青名前", "経過(分)"
 ];
-// この大会の開始時刻(経過時間の計算用)。実際の開始時刻が変わったらここを直してください。
-const LEAGUE_START_TIME = "10:00";
+// 経過時間(分)は、「試合記録」シートの最初の記録(=最初の試合が始まった時刻)を0分として数えます。
+// 開始時刻をここに書く必要はありません。リハーサルの記録が残っていると、そこが0分になるので、
+// 本番の前に「試合記録」シートの2行目以降を消してください。
 // banner.html専用の、ログ追記だけができる合言葉。ADMIN_TOKENとは必ず別の値にする。
 const BANNER_TOKEN = "banner-log-2026";
 
@@ -635,7 +636,7 @@ function appendMatchLog(body) {
 
     const now = new Date();
     const timestamp = Utilities.formatDate(now, Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss");
-    const elapsedMinutes = elapsedMinutesSinceStart(now);
+    const elapsedMinutes = elapsedMinutesSinceFirstRecord(now, sheet);
 
     const row = [
       timestamp,
@@ -662,13 +663,14 @@ function appendMatchLog(body) {
   }
 }
 
-// LEAGUE_START_TIME(例: "10:00")を基準にした経過分数。日付はスクリプト実行時の「今日」を使う。
-function elapsedMinutesSinceStart(now) {
-  const parts = String(LEAGUE_START_TIME).split(":");
-  const hours = Number(parts[0]) || 0;
-  const minutes = Number(parts[1]) || 0;
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0);
-  return Math.round((now.getTime() - start.getTime()) / 60000);
+// 「試合記録」シートの最初の記録を0分とした経過分数。最初の記録のときは0。
+// (追記する前に呼ぶので、シートに記録が無ければ今回が最初の記録になる)
+function elapsedMinutesSinceFirstRecord(now, sheet) {
+  if (sheet.getLastRow() < 2) return 0;
+  const firstText = String(sheet.getRange(2, 1).getDisplayValue()).trim(); // 例: 2026-12-05 10:21:03
+  const first = new Date(firstText.replace(" ", "T"));
+  if (isNaN(first.getTime())) return "";
+  return Math.round((now.getTime() - first.getTime()) / 60000);
 }
 
 // 保存のたびに、その時刻とスコアを履歴シートへ1行ずつ追記する(消さずに積み上げる)

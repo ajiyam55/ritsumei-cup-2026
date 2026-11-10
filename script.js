@@ -1,4 +1,4 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbzJVgRIG91ltQxs4NgWrV0QbGrtzoNknPADRy6zyoHmcGTPntnpjcKiVs5TJnQmnKs5Vw/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbxfVJu55lT5Hf2k30viKzEug90YrvPfM4wVEcJvehdIURJ9oIrXYJBIf9VEC026kFz0Ew/exec";
 
 function renderMatchRow(m) {
   return `<div class="match-row${m.current ? " is-current" : ""}">
@@ -108,6 +108,17 @@ function startRefreshCooldown(buttons) {
     buttons.forEach((btn) => { if (btn) btn.disabled = false; });
   }, REFRESH_COOLDOWN_MS);
 }
+
+function applyCourtSettings() {
+ if (!window.RRST_SETTINGS_READY) return;
+  window.RRST_SETTINGS_READY.then((settings) => {
+    ["a", "b", "c"].forEach((key, index) => {
+      const numEl = document.getElementById(`match-${key}`);
+      const courtEl = numEl && numEl.closest(".court");
+      if (courtEl) courtEl.style.display = index >= settings.courts ? "none" : "";
+    });
+  });
+ }
 
 window.addEventListener("DOMContentLoaded", () => {
   fetchNextMatch();

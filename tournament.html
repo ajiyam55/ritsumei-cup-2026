@@ -562,6 +562,29 @@
       background: var(--winner);
     }
 
+    /* 前の回戦から線が来ない試合(両方シード)は、左の線を出さない */
+    .round:not(:first-child) .match.no-feeder-line::before {
+      display: none;
+    }
+
+    /* 2回戦から登場するシード */
+    .seed-tag {
+      flex: 0 0 auto;
+      padding: 0 5px;
+      color: var(--primary);
+      background: #fbeff0;
+      border: 1px solid var(--primary-light);
+      border-radius: 999px;
+      font-size: 0.52rem;
+      font-weight: bold;
+      line-height: 1.5;
+      white-space: nowrap;
+    }
+
+    .seed-tag + .team-name {
+      flex: 1 1 auto;
+    }
+
     .match.is-bye {
       border: 0;
       background: transparent;
@@ -932,10 +955,12 @@
     </form>
   </div>
 
+  <script src="settings.js?v=20261110"></script>
   <script>
-    const BLOCKS = ["A", "B", "C"];
+    // 使うコート(大会設定のコート数で A・B だけ、または A・B・C になる。読み込み後に決まる)
+    let BLOCKS = ["A", "B", "C"];
     const DEFAULT_BRACKET_SIZE = 16;
-    const TOURNAMENT_API_BASE_URL = "https://script.google.com/macros/s/AKfycbzJVgRIG91ltQxs4NgWrV0QbGrtzoNknPADRy6zyoHmcGTPntnpjcKiVs5TJnQmnKs5Vw/exec";
+    const TOURNAMENT_API_BASE_URL = "https://script.google.com/macros/s/AKfycbxfVJu55lT5Hf2k30viKzEug90YrvPfM4wVEcJvehdIURJ9oIrXYJBIf9VEC026kFz0Ew/exec";
     const WANT_ADMIN = new URLSearchParams(window.location.search).get("admin") === "1";
     const TOKEN_KEY = "rrst_admin_token";
 
@@ -984,18 +1009,12 @@
     //   キーは回戦の名前。書いていない回戦は DEFAULT_WINS 本先取として表示します。
     //   例: 今回は1回戦だけ1本先取 → "1回戦": 1
     // ---------------------------------------------------------------
-    const DEFAULT_WINS = 2;
-    const WINS_NEEDED = {
-      "1回戦": 1,
-      "2回戦": 2,
-      "3回戦": 2, // 参加ブロックが多く、トーナメントが32枠になったときだけ出ます
-      "準々決勝": 2,
-      "準決勝": 2,
-      "最終戦": 2 // 最終決戦・決勝・3位決定戦
-    };
+    // 何本先取かは、documents/settings.txt(管理者ページの「大会設定」タブで作ります)から読み込みます。
+    // 書いていない回戦は DEFAULT_WINS 本先取として表示します。
+    const DEFAULT_WINS = window.RRST_FALLBACK_WINS || 2;
 
     function winsNeeded(key) {
-      const wins = Number(WINS_NEEDED[key]);
+      const wins = Number((window.RRST_SETTINGS.wins || {})[key]);
       return Number.isInteger(wins) && wins >= 1 ? wins : DEFAULT_WINS;
     }
 
@@ -1086,8 +1105,9 @@
         ? `<input class="score-input" type="number" min="0" step="1" inputmode="numeric" data-block="${options.block}" data-round="${options.round}" data-match="${options.matchIndex}" data-color="${options.color}" value="${escapeHtml(score)}"${options.disabled ? " disabled" : ""}>`
         : `<span class="team-score">${score === "" ? "-" : escapeHtml(score)}</span>`;
 
+      const seedTag = options.seed ? `<span class="seed-tag">シード</span>` : "";
       return `<div class="team${winner}">
-        <span class="team-name">${escapeHtml(number + name)}</span>
+        ${seedTag}<span class="team-name">${escapeHtml(number + name)}</span>
         ${scoreMarkup}
       </div>`;
     }
@@ -1108,15 +1128,24 @@
 
       // 1回戦で誰もいない枠は描かない。2回戦以降は「未定」の枠を常に出す
       if (round === 0 && !hasRed && !hasBlue) return "";
+      // 1回戦で相手がいない枠(シード)は1回戦には描かず、2回戦の枠に「シード」として直接入れる
+      if (round === 0 && (!hasRed || !hasBlue)) return "";
 
       const rowSpan = 2 ** (round + 1);
       const rowStart = (matchIndex - 1) * rowSpan + 1;
       const isBye = round === 0 && (!hasRed || !hasBlue);
       const advanced = Boolean(match.winner || match.bye);
-      const feederAdvanced = round > 0 && [
+      const feeders = round > 0 ? [
         getMatch(block, round - 1, matchIndex * 2 - 1),
         getMatch(block, round - 1, matchIndex * 2)
-      ].some(feeder => feeder.winner || feeder.bye);
+      ] : [];
+      // 1回戦のシード(不戦勝)は1回戦に線が無いので、勝ち上がりの線の色には数えない
+      const feederAdvanced = feeders.some(feeder => feeder.winner);
+      // 前の回戦から線が来る試合が1つも無い(両方シード)ときは、左の線を描かない
+      const hasFeederLine = feeders.some(feeder => !feeder.bye);
+      // 2回戦の枠にいる選手が1回戦のシード(相手なしで勝ち上がった枠)かどうか
+      const redSeed = round === 1 && Boolean(feeders[0] && feeders[0].bye);
+      const blueSeed = round === 1 && Boolean(feeders[1] && feeders[1].bye);
       const editable = Boolean(
         hasRed && hasBlue && !match.red.pending && !match.blue.pending
       );
@@ -1130,7 +1159,8 @@
         "match",
         isBye ? "is-bye" : "",
         !isBye && match.number ? "has-number" : "",
-        feederAdvanced ? "is-fed" : ""
+        feederAdvanced ? "is-fed" : "",
+        round > 0 && !hasFeederLine ? "no-feeder-line" : ""
       ].join(" ");
       // 試合番号はサーバー側で「不戦勝を除いて1回戦から順番」に付けている
       const matchNumberMarkup = !isBye && match.number
@@ -1141,8 +1171,8 @@
       return `<div class="${slotClass}" style="grid-row: ${rowStart} / span ${rowSpan};">
         <article class="${matchClass}">
           ${matchNumberMarkup}
-          ${teamMarkup(match.red, { block, round, matchIndex, color: "red", placeholder, editable, bye: isBye, disabled: tournamentData[block].saving })}
-          ${teamMarkup(match.blue, { block, round, matchIndex, color: "blue", placeholder, editable, bye: isBye, disabled: tournamentData[block].saving })}
+          ${teamMarkup(match.red, { block, round, matchIndex, color: "red", placeholder, editable, bye: isBye, seed: redSeed, disabled: tournamentData[block].saving })}
+          ${teamMarkup(match.blue, { block, round, matchIndex, color: "blue", placeholder, editable, bye: isBye, seed: blueSeed, disabled: tournamentData[block].saving })}
         </article>
       </div>`;
     }
@@ -2108,9 +2138,13 @@
     window.addEventListener("resize", hideNameTip);
 
     // 開いたときに1回だけ取得する。以降は「更新」ボタンを押したときだけ通信する。
-    renderTournament();
-    initAdmin();
-    refreshAll();
+    // 大会設定(コート数・何本先取か)を読んでから表示する。読めなくても初期値で動く。
+    window.RRST_SETTINGS_READY.then(settings => {
+      BLOCKS = ["A", "B", "C"].slice(0, settings.courts);
+      renderTournament();
+      initAdmin();
+      refreshAll();
+    });
   </script>
 </body>
 </html>

@@ -23,8 +23,8 @@
       <div class="opening-logo">
         <img src="image/logo.svg" alt="立命杯2026">
       </div>
-      <h1 class="opening-title">立命杯 2026</h1>
-      <p class="opening-date">2026.12.5(土) 開催</p>
+      <h1 class="opening-title">立命杯 <span data-setting="year">2026</span></h1>
+      <p class="opening-date"><span data-setting="date-dot">2026.12.5(土)</span> 開催</p>
       <div class="opening-line"></div>
     </div>
   </div>
@@ -36,7 +36,7 @@
           <img src="image/logo.svg" alt="大会ロゴ">
         </div>
         <div>
-          <div class="title">立命杯2026</div>
+          <div class="title">立命杯<span data-setting="year">2026</span></div>
         </div>
       </div>
 
@@ -44,7 +44,7 @@
     </div>
 
     <div class="quick-nav" id="quick-nav">
-      <!--<a href="#entry" data-target="entry">応募</a>-->
+      <a href="#entry" data-target="entry" data-show-if="entryOpen" style="display:none">応募</a>
       <a href="#next-match" data-target="next-match">次の試合</a>
       <a href="#tournament" data-target="tournament">トーナメント表</a>
       <a href="#schedule" data-target="schedule">スケジュール</a>
@@ -55,7 +55,7 @@
     </div>
 
     <nav>
-      <!--<a href="#entry">応募</a>-->
+      <a href="#entry" data-show-if="entryOpen" style="display:none">応募</a>
       <a href="#next-match">次の試合</a>
       <a href="#tournament">トーナメント表</a>
       <a href="#about">概要</a>
@@ -71,8 +71,8 @@
   </header>
 
   <main>
-    <!-- 応募セクションは、試合参加者の募集が終了したため、現在は非表示にしています。必要に応じて再度表示することができます。
-    <section id="entry" class="card">
+    <!-- 応募セクション: 表示するかどうかは、管理者ページの「大会設定」で決めます(settings.txt の entryOpen) -->
+    <section id="entry" class="card" data-show-if="entryOpen" style="display:none">
       <h2>応募</h2>
       <p>試合に参加される方は以下のボタンからお申し込みください。</p>
       <p>〆切：10月10日</p>
@@ -83,7 +83,6 @@
         </a>
       </div>
     </section>
-  -->
 
     <!-- 次の試合（最優先で先頭に表示） -->
     <section id="next-match" class="card2">
@@ -186,8 +185,9 @@
     <!-- 大会概要 -->
     <section id="about" class="card">
       <h2>大会概要</h2>
-      <h3>2026年12月5日（土）開催</h3>
-      <p>今年で16回目となりました、毎年恒例の「立命杯」。フリーバトルもご用意しております！皆様のご参加を心よりお待ちしております。</p>
+      <h3><span data-setting="date-long">2026年12月5日（土）</span>開催</h3>
+      <p>今年で<span data-setting="edition">17</span>回目となりました、毎年恒例の「立命杯」。フリーバトルもご用意しております！
+      </br>皆様のご参加を心よりお待ちしております。</p>
     </section>
 
     <!-- スケジュール -->
@@ -294,7 +294,7 @@
         <!-- Google Maps -->
         <iframe 
           src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3268.981545885466!2d135.96105967409443!3d34.98212696806354!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x60016dc10d85ceb9%3A0x18a0454b259587c9!2z56uL5ZG96aSo5aSn5a2mIOOBs-OCj-OBk-OBu-OBleOBpOOCreODo-ODs-ODkeOCuQ!5e0!3m2!1sja!2sjp!4v1760561627054!5m2!1sja!2sjp" 
-          width="400" height="350" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade">
+          width="360" height="320" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade">
         </iframe>
         
         <!-- 会場写真 -->
@@ -354,6 +354,7 @@
   </footer>
 
   <!-- 末尾 -->
+  <script src="settings.js?v=20261110"></script>
   <script src="script.js?v=20260920"></script>
   <script src="entries.js?v=20261106"></script>
   <script src="quicknav.js?v=20260815"></script>
