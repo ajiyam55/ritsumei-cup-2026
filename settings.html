@@ -202,7 +202,37 @@
       </div>
     </div>
 
-    <h2>2. 対戦の並び(人の入れ替え)</h2>
+    <h2>2. 作られた設定の文章</h2>
+    <textarea id="output" readonly spellcheck="false" aria-label="作られた設定の文章"></textarea>
+    <div class="buttons">
+      <button type="button" id="copy-button">コピーする</button>
+      <button type="button" id="download-button" class="secondary">settings.txt としてダウンロード</button>
+    </div>
+    <p class="status" id="status" role="status"></p>
+
+    <h2>3. 反映のしかた(サーバーにアップロード)</h2>
+    <div class="card">
+      <ol class="steps">
+        <li>上の「コピーする」を押す(またはダウンロードする)。</li>
+        <li>
+          <b>新しい年度にするとき</b>: 前の年のサイトのフォルダを<b>丸ごと複製</b>し、フォルダ名に入っている年を新しい年に変える(例: 名前の「2026」→「2027」)。<br>
+          <b>同じ年の設定だけ直すとき</b>: 複製はせず、いまのフォルダをそのまま使う。
+        </li>
+        <li>複製(または手元)のフォルダの <span class="path">documents</span> フォルダにある <span class="path">settings.txt</span> を開き、中身を<b>すべて消して貼り付け</b>て保存する(ダウンロードしたファイルは、同じ名前で上書き)。</li>
+        <li>サークルのサーバーに、そのフォルダを<b>フォルダごとアップロード</b>する。設定だけ直したときは、<span class="path">documents/settings.txt</span> だけを上書きでも構いません。</li>
+        <li>サイトを開き直す(変わらないときは、ブラウザの再読み込み。Ctrl+Shift+R)。</li>
+        <li>この画面を開き直して、下の「いま公開されている設定」が作った内容と同じになっていれば完了。</li>
+      </ol>
+      <p class="note">
+        カンマ(,)や引用符(")が消えると読み込めなくなり、初期値で動きます。うまくいかないときは、もう一度コピーして貼り直してください。
+        設定ファイルはどのページからも自動で読まれるので、HTMLを書き換える必要はありません。
+        フォルダ名を変えるとサイトのURLも変わります。前の年のフォルダは、そのまま残しておけば前の年のサイトとして見られます。
+      </p>
+    </div>
+
+    <h2>いま公開されている設定</h2>
+    <div class="card published" id="published">読み込み中…</div>
+    <h2>4. 対戦の並び(人の入れ替え)</h2>
     <div class="card">
       <p class="note" style="margin-top:0">
         各コートのリーグ優勝者の並びです。1回戦で当たる2人が1組、そのとなりの組の勝者と2回戦で当たります。
@@ -212,33 +242,6 @@
       <div id="bk-body">読み込み中…</div>
       <p class="bk-warn">※ 試合の点数を入れたあとに並びを入れ替えると、変わった試合の点数は消えて見えなくなります。入れ替えは試合前に行ってください。</p>
     </div>
-
-    <h2>3. 作られた設定の文章</h2>
-    <textarea id="output" readonly spellcheck="false" aria-label="作られた設定の文章"></textarea>
-    <div class="buttons">
-      <button type="button" id="copy-button">コピーする</button>
-      <button type="button" id="download-button" class="secondary">settings.txt としてダウンロード</button>
-    </div>
-    <p class="status" id="status" role="status"></p>
-
-    <h2>4. 反映のしかた(コピペ)</h2>
-    <div class="card">
-      <ol class="steps">
-        <li>上の「コピーする」を押す(またはダウンロードする)。</li>
-        <li>GitHubのリポジトリで、<span class="path">documents</span> フォルダの <span class="path">settings.txt</span> を開く。</li>
-        <li>鉛筆アイコン(編集)を押し、中身を<b>すべて消して貼り付け</b>る(ダウンロードしたファイルを使うときは、同じ名前でアップロードして上書き)。</li>
-        <li>「Commit changes」を押して保存する。</li>
-        <li>1〜2分ほど待ってから、各ページを開き直す(表示が変わらないときは、ブラウザの再読み込み)。</li>
-        <li>この画面を開き直して、下の「いま公開されている設定」が作った内容と同じになっていれば完了。</li>
-      </ol>
-      <p class="note">
-        カンマ(,)や引用符(")が消えると読み込めなくなり、初期値で動きます。うまくいかないときは、もう一度コピーして貼り直してください。
-        設定ファイルはどのページからも自動で読まれるので、HTMLを書き換える必要はありません。
-      </p>
-    </div>
-
-    <h2>いま公開されている設定</h2>
-    <div class="card published" id="published">読み込み中…</div>
   </main>
 
   <script>
@@ -414,7 +417,7 @@
 
     document.getElementById("copy-button").addEventListener("click", function () {
       if (!output.value) return;
-      var done = function () { setStatus("コピーしました。GitHubの settings.txt に貼り付けてください。", "ok"); };
+      var done = function () { setStatus("コピーしました。settings.txt に貼り付けてください。", "ok"); };
       var fallback = function () {
         output.select();
         try { document.execCommand("copy"); done(); }
