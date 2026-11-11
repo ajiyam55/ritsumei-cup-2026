@@ -21,6 +21,9 @@ const IGNORED_BLOCK_IDS = { 14: true };
 const BLOCK_COUNT_SOURCE_SHEET = "機体一覧";
 const BLOCK_COUNT_SOURCE_CELLS = { A: "G2", B: "H2", C: "I2" };
 const SCORE_SHEET_NAME = "FinalTournament";
+// トーナメントの並び(誰がどの枠か)を手で入れ替えたときの保存先。PropertiesServiceに保存するので、
+// スプレッドシート側には何も残らない。形: { "A": [ブロック番号 or null, ...(枠の順)], ... }
+const BRACKET_LAYOUT_PROPERTY = "bracketLayout";
 // 更新のたびに1行ずつ追記していく記録用シート(動画編集などの後作業で、
 // 「何時何分にどのスコアが入ったか」を振り返れるようにするための履歴)。
 // FinalTournament シートは保存のたびに書き換わるが、こちらは追記のみで消さない。
@@ -44,6 +47,7 @@ const CURRENT_MATCH_CACHE_KEY = "current_match";
 // 「呼び出し画面」タブにあるボタンで切り替える。PropertiesServiceに保存するので、
 // スプレッドシート側には何も残らない。
 const NEXT_MATCH_VISIBLE_PROPERTY = "nextMatchNamesVisible";
+const TOURNAMENT_PUBLISHED_PROPERTY = "tournamentPublished"; // トーナメント表の公開/非公開(未設定なら公開)
 const REDACTED_TEAM = { num: "?", name: "ー" };
 
 // ---------------------------------------------------------------
@@ -197,14 +201,32 @@ function getTournamentData(event) {
     return jsonOutput({ error: `Sheet not found for league: ${league}` });
   }
 
+  // 公開/非公開はキャッシュに入れず、毎回いまの値を付ける
+  const published = isTournamentPublished();
   const cached = CacheService.getScriptCache().get(cacheKey(league));
   if (cached) {
-    return ContentService.createTextOutput(cached).setMimeType(ContentService.MimeType.JSON);
+    try {
+      const cachedPayload = JSON.parse(cached);
+      cachedPayload.published = published;
+      return jsonOutput(cachedPayload);
+    } catch (error) {
+      // 壊れたキャッシュは使わず、作り直す
+    }
   }
 
   const payload = buildTournamentPayload(SpreadsheetApp.getActiveSpreadsheet(), league);
   if (!payload.error) putCache(league, payload);
+  payload.published = published;
   return jsonOutput(payload);
+}
+
+function isTournamentPublished() {
+  const stored = PropertiesService.getScriptProperties().getProperty(TOURNAMENT_PUBLISHED_PROPERTY);
+  return stored !== "false";
+}
+
+function setTournamentPublished(published) {
+  PropertiesService.getScriptProperties().setProperty(TOURNAMENT_PUBLISHED_PROPERTY, published ? "true" : "false");
 }
 
 // 「機体一覧」シートの自動集計セル(試合数)から、このリーグのブロック数を読み取る。
@@ -232,7 +254,7 @@ function buildTournamentPayload(spreadsheet, league) {
   // 1. リーグシートから組み合わせ(1回戦)を作る
   // ブロック数は「機体一覧」の自動集計セルを優先。取れなければ従来通りシートから判定する。
   const blockCountOverride = getBlockCountFromSource(spreadsheet, league);
-  const result = parseLeagueSheet(sheet, blockCountOverride);
+  const result = parseLeagueSheet(sheet, blockCountOverride, getBracketLayout(league));
 
   // 2. FinalTournament シートから「このリーグの」スコアだけ読む
   const scoreSheet = spreadsheet.getSheetByName(SCORE_SHEET_NAME);
@@ -278,44 +300,72 @@ function applyScores(baseMatches, scoreRows, bracketSize) {
     return matches.find(match => match.round === round && match.match === number);
   }
 
+  // 先に、トーナメントの形だけから各試合の種類を決める。
+  //   real = 2チームが戦う試合 / pass = 片方の枠が空きで、勝ち上がりをそのまま通過させる(シード)
+  //   dead = 誰も来ない空きの枠(描かない)
+  // 1回戦に限らず、2回戦以降でも「前の試合が片方だけ」なら pass になるので、
+  // 2回戦でシード(スキップ)になる人も同じ仕組みで表せる。
+  const kind = {};
   for (let round = 0; round < totalRounds; round += 1) {
     matches
       .filter(match => match.round === round)
       .forEach(match => {
-        const hasBoth = Boolean(match.red && match.blue);
+        let alive;
+        if (round === 0) {
+          alive = (match.red ? 1 : 0) + (match.blue ? 1 : 0);
+        } else {
+          alive = [2 * match.match - 1, 2 * match.match]
+            .filter(number => kind[`${round - 1}-${number}`] !== "dead").length;
+        }
+        kind[`${round}-${match.match}`] = alive === 2 ? "real" : (alive === 1 ? "pass" : "dead");
+        match.bye = alive === 1;   // シード(通過)の試合。画面には描かない
+        match.dead = alive === 0;  // 空き枠。画面には描かない
+      });
+  }
+
+  for (let round = 0; round < totalRounds; round += 1) {
+    matches
+      .filter(match => match.round === round)
+      .forEach(match => {
+        const matchKind = kind[`${round}-${match.match}`];
         let advancing = "";
 
-        const hasPending = Boolean(
-          (match.red && match.red.pending) || (match.blue && match.blue.pending)
-        );
-
-        if (hasBoth && hasPending) {
-          // 代表がまだ決まっていないブロックがある試合は、勝敗を付けない
-        } else if (hasBoth) {
-          const row = scoreRows.find(item =>
-            item.round === match.round && item.match === match.match
+        if (matchKind === "real") {
+          const hasBoth = Boolean(match.red && match.blue);
+          const hasPending = Boolean(
+            (match.red && match.red.pending) || (match.blue && match.blue.pending)
           );
 
-          // 保存時と対戦カードが変わっていたら、古いスコアは無視する
-          const sameCard = row &&
-            row.redName === match.red.name &&
-            row.blueName === match.blue.name;
+          if (hasBoth && hasPending) {
+            // 代表がまだ決まっていないブロックがある試合は、勝敗を付けない
+          } else if (hasBoth) {
+            const row = scoreRows.find(item =>
+              item.round === match.round && item.match === match.match
+            );
 
-          if (sameCard) {
-            match.red.score = row.redScore;
-            match.blue.score = row.blueScore;
-            const winnerColor = winnerFromScores(row.redScore, row.blueScore);
-            if (winnerColor) {
-              match.winner = true;
-              match[winnerColor].winner = true;
-              advancing = winnerColor;
+            // 保存時と対戦カードが変わっていたら、古いスコアは無視する
+            const sameCard = row &&
+              row.redName === match.red.name &&
+              row.blueName === match.blue.name;
+
+            if (sameCard) {
+              match.red.score = row.redScore;
+              match.blue.score = row.blueScore;
+              const winnerColor = winnerFromScores(row.redScore, row.blueScore);
+              if (winnerColor) {
+                match.winner = true;
+                match[winnerColor].winner = true;
+                advancing = winnerColor;
+              }
             }
           }
-        } else if (round === 0 && (match.red || match.blue)) {
-          // 1回戦で相手がいない = 不戦勝。自動で次へ進める
-          match.bye = true;
-          advancing = match.red ? "red" : "blue";
-          if (!match[advancing].pending) match[advancing].winner = true;
+        } else if (matchKind === "pass") {
+          // 相手のいない枠(シード)は、チームが来たらそのまま次へ進める
+          const only = match.red ? "red" : (match.blue ? "blue" : "");
+          if (only) {
+            advancing = only;
+            if (!match[only].pending) match[only].winner = true;
+          }
         }
 
         if (advancing && round < totalRounds - 1) {
@@ -326,15 +376,14 @@ function applyScores(baseMatches, scoreRows, bracketSize) {
       });
   }
 
-  // 試合番号: 不戦勝(1回戦で相手なし)は数えず、1回戦から順に連番にする
+  // 試合番号: シード(通過)と空き枠は数えず、1回戦から順に連番にする
   let counter = 0;
   for (let round = 0; round < totalRounds; round += 1) {
     matches
       .filter(match => match.round === round)
       .sort((left, right) => left.match - right.match)
       .forEach(match => {
-        const isBye = round === 0 && !(match.red && match.blue);
-        match.number = isBye ? null : (counter += 1);
+        match.number = (match.bye || match.dead) ? null : (counter += 1);
       });
   }
 
@@ -348,7 +397,13 @@ function findQualifier(matches, bracketSize) {
     match.round === finalRound && match.match === 1
   );
 
-  if (!finalMatch || !finalMatch.winner) return null;
+  if (!finalMatch) return null;
+  // 決勝が「通過」(参加が1人だけ)のときは、その人が代表
+  if (finalMatch.bye) {
+    const only = finalMatch.red || finalMatch.blue;
+    return only && !only.pending ? advanceTeam(only) : null;
+  }
+  if (!finalMatch.winner) return null;
   const team = finalMatch.red && finalMatch.red.winner ? finalMatch.red : finalMatch.blue;
   return advanceTeam(team);
 }
@@ -559,6 +614,32 @@ function doPost(event) {
     if (body.action === "setNextMatchVisible") {
       setNextMatchVisible(Boolean(body.visible));
       return jsonOutput({ ok: true, visible: Boolean(body.visible) });
+    }
+
+    // トーナメント表の公開/非公開
+    if (body.action === "setTournamentPublished") {
+      setTournamentPublished(Boolean(body.published));
+      return jsonOutput({ ok: true, published: Boolean(body.published) });
+    }
+
+    // トーナメントの並び(誰がどの枠か)の入れ替えを保存する。layout が無ければ標準の並びに戻す。
+    if (body.action === "setBracketLayout") {
+      const targetLeague = normalizeLeague(body.league);
+      if (!LEAGUE_SHEETS[targetLeague]) {
+        return jsonOutput({ error: `Unknown league: ${targetLeague}` });
+      }
+      let layout = null;
+      if (Array.isArray(body.layout)) {
+        layout = body.layout.map(value => (value === null || value === "" ? null : Number(value)));
+        const invalid = layout.length > BRACKET_SIZE ||
+          layout.some(value => value !== null && !Number.isInteger(value));
+        if (invalid) return jsonOutput({ error: "Invalid layout" });
+      }
+      setBracketLayout(targetLeague, layout);
+      CacheService.getScriptCache().remove(cacheKey(targetLeague));
+      const layoutPayload = buildTournamentPayload(SpreadsheetApp.getActiveSpreadsheet(), targetLeague);
+      if (!layoutPayload.error) putCache(targetLeague, layoutPayload);
+      return jsonOutput({ ok: true, league: targetLeague, data: layoutPayload });
     }
 
     const league = normalizeLeague(body.league);
@@ -774,7 +855,7 @@ function rowToObject(headers, row) {
 // リーグシートの解析
 // ---------------------------------------------------------------
 
-function parseLeagueSheet(sheet, blockCountOverride) {
+function parseLeagueSheet(sheet, blockCountOverride, layout) {
   const values = sheet.getDataRange().getDisplayValues();
   const blocks = [];
 
@@ -848,6 +929,12 @@ function parseLeagueSheet(sheet, blockCountOverride) {
   const limited = entrants.slice(0, MAX_PARTICIPANTS);
   const bracketSize = nextBracketSize(limited.length);
 
+  // 枠の並び: 標準の並び(初期)か、手で入れ替えて保存した並び(合っているときだけ使う)
+  const defaultSlots = seedEntrants(limited, bracketSize);
+  const customSlots = applyBracketLayout(defaultSlots, bracketSize, layout);
+  const slots = customSlots || defaultSlots;
+  const seedOf = slot => (slot ? slot.seed : null);
+
   return {
     sourceSheet: sheet.getName(),
     // 確認用: どのブロックから代表が取れているか
@@ -862,7 +949,11 @@ function parseLeagueSheet(sheet, blockCountOverride) {
     entryCount: limited.length - pendingBlocks.length,
     bracketSize,
     // 1回戦の組み合わせ。スコア反映・勝ち上がりは buildTournamentPayload で行う
-    matches: buildBracketMatches(seedEntrants(limited, bracketSize), bracketSize),
+    matches: buildBracketMatches(slots, bracketSize),
+    layout: slots.map(seedOf),               // 今の並び(枠の順に、ブロック番号。空き枠はnull)
+    defaultLayout: defaultSlots.map(seedOf), // 標準の並び
+    layoutApplied: Boolean(customSlots),     // 手で入れ替えた並びを使っているか
+    layoutStale: Boolean(layout) && !customSlots, // 保存済みの並びが今のブロック数と合わず、使えなかった
     qualifier: null
   };
 }
@@ -899,13 +990,15 @@ function buildBracketMatches(entrants, bracketSize) {
   return matches;
 }
 
+// 枠の数。リーグの代表(ブロック数)は2人ずつ最初の試合で必ず当たり、
+// その勝者が2回戦以降のトーナメントに入る。なので「最初の試合の数」を2の累乗にそろえ、
+// 足りない分は空き枠にする(空き枠の相手になった人が、2回戦でシード=スキップになる)。
+// 例: 12ブロック → 最初の試合6つ → 8に切り上げ → 枠16。2試合分が空き枠なので、2回戦のシードが2人。
 function nextBracketSize(entryCount) {
-  if (entryCount <= 1) return 2;
-  let bracketSize = 2;
-  while (bracketSize < entryCount && bracketSize < BRACKET_SIZE) {
-    bracketSize *= 2;
-  }
-  return bracketSize;
+  const firstRoundMatches = Math.max(1, Math.ceil(entryCount / 2));
+  let size = 1;
+  while (size < firstRoundMatches && size * 2 < BRACKET_SIZE) size *= 2;
+  return size * 2;
 }
 
 // 大会でよく使われる「1位vs最下位、2位vs下から2番目…」という標準的な配置。
@@ -922,19 +1015,64 @@ function seedPositions(bracketSize) {
   return positions; // 添字(0始まり)がトーナメント表の枠番号、値が何番目の代表(1始まり)か
 }
 
+// 代表をブロック番号の若い順に2人ずつ組にして、最初の試合(1回戦)に当てる。
+// 試合の並びは標準の配置にして、空き枠(シード)ができる試合がばらけるようにする。
 function seedEntrants(entrants, bracketSize) {
-  // 代表(ブロック代表)を上から順番(ブロック番号の若い順)に並べる
   const ordered = [...entrants].sort((left, right) => {
     return Number(left.seed || 999) - Number(right.seed || 999);
   });
-  const order = seedPositions(bracketSize);
+  const order = seedPositions(bracketSize / 2); // 何番目の組が、上から何番目の試合に入るか
   const slots = Array(bracketSize).fill(null);
 
-  order.forEach((rank, slotIndex) => {
-    slots[slotIndex] = ordered[rank - 1] || null;
+  order.forEach((rank, matchIndex) => {
+    slots[matchIndex * 2] = ordered[(rank - 1) * 2] || null;
+    slots[matchIndex * 2 + 1] = ordered[(rank - 1) * 2 + 1] || null;
   });
 
   return slots;
+}
+
+// 手で入れ替えた並び(枠の順のブロック番号)が、今の代表と過不足なく合っているときだけ使う。
+// ブロック数が変わった・重複があるなど、合わないときはnullを返して標準の並びに戻す。
+function applyBracketLayout(defaultSlots, bracketSize, layout) {
+  if (!Array.isArray(layout) || layout.length !== bracketSize) return null;
+  const bySeed = {};
+  defaultSlots.forEach(slot => { if (slot) bySeed[slot.seed] = slot; });
+
+  const used = {};
+  const slots = [];
+  for (let index = 0; index < layout.length; index += 1) {
+    const id = layout[index];
+    if (id === null || id === undefined) {
+      slots.push(null);
+      continue;
+    }
+    const entrant = bySeed[id];
+    if (!entrant || used[id]) return null;
+    used[id] = true;
+    slots.push(entrant);
+  }
+  if (Object.keys(used).length !== Object.keys(bySeed).length) return null;
+  return slots;
+}
+
+function getBracketLayout(league) {
+  try {
+    const text = PropertiesService.getScriptProperties().getProperty(BRACKET_LAYOUT_PROPERTY);
+    const all = text ? JSON.parse(text) : {};
+    return Array.isArray(all[league]) ? all[league] : null;
+  } catch (ignore) {
+    return null;
+  }
+}
+
+function setBracketLayout(league, layout) {
+  const properties = PropertiesService.getScriptProperties();
+  let all = {};
+  try { all = JSON.parse(properties.getProperty(BRACKET_LAYOUT_PROPERTY) || "{}") || {}; } catch (ignore) { all = {}; }
+  if (layout) all[league] = layout;
+  else delete all[league];
+  properties.setProperty(BRACKET_LAYOUT_PROPERTY, JSON.stringify(all));
 }
 
 // 全角数字・全角スペースなどの揺れを吸収する(「第１３ ブロック」も認識できる)

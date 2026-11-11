@@ -90,6 +90,33 @@
     .note { margin-top: 10px; color: var(--muted); font-size: 0.8rem; line-height: 1.7; }
     .published { font-size: 0.88rem; line-height: 1.8; }
     .published b { color: var(--primary); }
+
+    .none-label { color: var(--muted); font-weight: bold; padding: 0 12px; }
+    .wins-grid label[hidden] { display: none; }
+
+    .bk-court { margin-top: 14px; }
+    .bk-court:first-of-type { margin-top: 0; }
+    .bk-title { font-weight: bold; margin-bottom: 6px; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; }
+    .bk-title small { color: var(--muted); font-weight: normal; font-size: 0.78rem; }
+    .bk-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+    .bk-group { border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 6px; }
+    .bk-group-label { font-size: 0.68rem; color: var(--muted); margin-bottom: 4px; }
+    .bk-pair { display: grid; gap: 3px; padding: 4px 0; }
+    .bk-pair + .bk-pair { border-top: 1px dashed var(--line); }
+    .bk-chip {
+      min-height: 34px; padding: 4px 8px; border: 1px solid #c9c0c3; border-radius: 6px;
+      background: #fff; font-size: 0.78rem; line-height: 1.3; cursor: grab; user-select: none;
+      display: flex; flex-direction: column; justify-content: center; text-align: left; font-weight: normal; color: var(--ink);
+    }
+    .bk-chip:hover { background: #fbeff0; }
+    .bk-chip small { color: var(--muted); font-size: 0.66rem; }
+    .bk-chip.is-empty { color: var(--muted); background: #f1eeef; border-style: dashed; }
+    .bk-chip.is-selected { outline: 3px solid var(--primary); background: #fbeff0; }
+    .bk-chip.is-over { outline: 3px dashed var(--primary); }
+    .bk-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .bk-warn { color: #b3261e; font-size: 0.8rem; margin-top: 6px; line-height: 1.6; }
+    .bk-login { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+    .bk-login input { min-height: 38px; padding: 4px 10px; font: inherit; border: 1px solid #c9c0c3; border-radius: 8px; }
   </style>
 </head>
 <body>
@@ -117,6 +144,12 @@
       </div>
 
       <div class="field">
+        <span class="label">応募セクション</span>
+        <label class="choice"><input type="checkbox" id="entry-open">index.html に「応募」を表示する</label>
+        <span class="hint">受付期間だけチェックを入れます。チェックなしだと、応募のセクションとメニューの「応募」が消えます。</span>
+      </div>
+
+      <div class="field">
         <span class="label">コート数</span>
         <span>
           <label class="choice"><input type="radio" name="courts" value="2">2コート(A・B)</label>
@@ -128,11 +161,27 @@
       <div class="field">
         <span class="label">何本先取か</span>
         <div class="wins-grid" id="wins-grid"></div>
-        <span class="hint">回戦ごとに決めます(何試合目、のような細かい指定はできません)。出場ブロックが多く32枠になったときだけ「3回戦」が出ます。「最終戦」は最終決戦・決勝・3位決定戦です。</span>
+        <span class="hint">回戦ごとに決めます(何試合目、のような細かい指定はできません)。コート内のリーグ数が多いと「3回戦」が出ます。今の人数で存在しない回戦は「なし」と表示されます。「最終戦」は最終決戦・決勝・3位決定戦です。</span>
       </div>
     </div>
 
-    <h2>2. 作られた設定の文章</h2>
+    <h2>2. 対戦の並び(人の入れ替え)</h2>
+    <div class="card">
+      <p class="note" style="margin-top:0">
+        各コートのリーグ優勝者の並びです。1回戦で当たる2人が1組、そのとなりの組の勝者と2回戦で当たります。
+        入れ替えたい2つを<b>順にタップ</b>(またはドラッグ)で交換できます。「シードにする」ときは空きの枠と交換します。
+        ここだけは設定ファイルではなく<b>APIに保存</b>され、「この並びを保存」でトーナメント表にすぐ反映されます。
+      </p>
+      <div class="bk-login" id="bk-login">
+        <input type="password" id="bk-password" placeholder="管理パスワード" autocomplete="off">
+        <button type="button" id="bk-login-button">ログイン</button>
+        <span class="status" id="bk-login-status"></span>
+      </div>
+      <div id="bk-body">読み込み中…</div>
+      <p class="bk-warn">※ 試合の点数を入れたあとに並びを入れ替えると、変わった試合の点数は消えて見えなくなります。入れ替えは試合前に行ってください。</p>
+    </div>
+
+    <h2>3. 作られた設定の文章</h2>
     <textarea id="output" readonly spellcheck="false" aria-label="作られた設定の文章"></textarea>
     <div class="buttons">
       <button type="button" id="copy-button">コピーする</button>
@@ -140,7 +189,7 @@
     </div>
     <p class="status" id="status" role="status"></p>
 
-    <h2>3. 反映のしかた(コピペ)</h2>
+    <h2>4. 反映のしかた(コピペ)</h2>
     <div class="card">
       <ol class="steps">
         <li>上の「コピーする」を押す(またはダウンロードする)。</li>
@@ -164,7 +213,7 @@
     var ROUND_ITEMS = [
       { key: "1回戦", sub: "" },
       { key: "2回戦", sub: "" },
-      { key: "3回戦", sub: "32枠のときだけ使用" },
+      { key: "3回戦", sub: "" },
       { key: "準々決勝", sub: "" },
       { key: "準決勝", sub: "" },
       { key: "最終戦", sub: "最終決戦・決勝・3位決定戦" }
@@ -185,12 +234,44 @@
 
     function buildWinsGrid() {
       winsGrid.innerHTML = ROUND_ITEMS.map(function (item) {
-        return '<label><span>' + escapeHtml(item.key) +
+        return '<label data-label="' + escapeHtml(item.key) + '"><span>' + escapeHtml(item.key) +
           (item.sub ? '<span class="sub">' + escapeHtml(item.sub) + '</span>' : '') +
           '</span><select data-round="' + escapeHtml(item.key) + '">' +
           [1, 2, 3].map(function (n) { return '<option value="' + n + '">' + n + '本先取</option>'; }).join("") +
-          '</select></label>';
+          '</select><span class="none-label" hidden>なし</span></label>';
       }).join("");
+    }
+
+    // ブロック数(=枠数)から、その枠で使う回戦の名前を返す(tournament.html と同じ決め方)
+    function roundNamesFor(bracketSize) {
+      var total = Math.round(Math.log(bracketSize) / Math.log(2));
+      var names = [];
+      for (var r = 0; r < total; r += 1) {
+        var fromEnd = total - 1 - r;
+        names.push(fromEnd === 0 ? "準決勝" : fromEnd === 1 ? "準々決勝" : (r + 1) + "回戦");
+      }
+      return names;
+    }
+
+    // 有効なコートのどこにも無い回戦は「なし」表示にする(データ未取得なら何もしない)
+    function refreshRoundAvailability() {
+      var courts = readForm().courts;
+      var leagues = ["A", "B", "C"].slice(0, courts);
+      var used = {};
+      var known = false;
+      leagues.forEach(function (lg) {
+        var d = bracketData[lg];
+        if (d && d.bracketSize) {
+          known = true;
+          roundNamesFor(d.bracketSize).forEach(function (n) { used[n] = true; });
+        }
+      });
+      winsGrid.querySelectorAll("label[data-label]").forEach(function (label) {
+        var key = label.dataset.label;
+        var none = known && key !== "最終戦" && !used[key];
+        label.querySelector("select").hidden = none;
+        label.querySelector(".none-label").hidden = !none;
+      });
     }
 
     function readForm() {
@@ -202,12 +283,14 @@
       return {
         eventDate: dateInput.value,
         courts: courtsInput ? Number(courtsInput.value) : 3,
+        entryOpen: document.getElementById("entry-open").checked,
         wins: wins
       };
     }
 
     function writeForm(settings) {
       dateInput.value = settings.eventDate;
+      document.getElementById("entry-open").checked = settings.entryOpen === true;
       var radio = document.querySelector('input[name="courts"][value="' + settings.courts + '"]');
       if (radio) radio.checked = true;
       winsGrid.querySelectorAll("select").forEach(function (select) {
@@ -225,6 +308,7 @@
         "{",
         '  "eventDate": ' + JSON.stringify(settings.eventDate) + ",",
         '  "courts": ' + settings.courts + ",",
+        '  "entryOpen": ' + (settings.entryOpen ? "true" : "false") + ",",
         '  "wins": {'
       ];
       var keys = ROUND_ITEMS.map(function (item) { return item.key; });
@@ -240,7 +324,8 @@
         return escapeHtml(item.key) + ": <b>" + settings.wins[item.key] + "本先取</b>";
       }).join(" / ");
       return "開催日: <b>" + escapeHtml(window.RRST_formatDate(settings.eventDate, "long") || settings.eventDate) + "</b><br>" +
-        "コート数: <b>" + settings.courts + "コート</b><br>" + rounds;
+        "コート数: <b>" + settings.courts + "コート</b><br>" +
+        "応募セクション: <b>" + (settings.entryOpen ? "表示する" : "表示しない") + "</b><br>" + rounds;
     }
 
     function setStatus(text, kind) {
@@ -294,9 +379,220 @@
 
     dateInput.addEventListener("input", refreshOutput);
     document.querySelectorAll('input[name="courts"]').forEach(function (radio) {
-      radio.addEventListener("change", refreshOutput);
+      radio.addEventListener("change", function () {
+        refreshOutput();
+        refreshRoundAvailability();
+        renderBracketEditor();
+      });
     });
     winsGrid.addEventListener("change", refreshOutput);
+    document.getElementById("entry-open").addEventListener("change", refreshOutput);
+
+
+    // ===== 対戦の並び(人の入れ替え) =====
+    var API_URL = "https://script.google.com/macros/s/AKfycbyqiV-OKw7RR9SssndobR12ytFvNNmveXh-U8r4IFNdEzpd880zKbvs_fmSEko-Fvmo/exec";
+    var TOKEN_KEY = "rrst_admin_token";
+    var bracketData = {};   // リーグ => サーバーのデータ
+    var workLayout = {};    // リーグ => 編集中の並び(枠の順にブロック番号 / null)
+    var selected = null;    // { league, index }
+    var adminToken = "";
+    var bkBody = document.getElementById("bk-body");
+
+    function getToken() { try { return sessionStorage.getItem(TOKEN_KEY) || ""; } catch (e) { return ""; } }
+    function setToken(v) { try { sessionStorage.setItem(TOKEN_KEY, v); } catch (e) {} }
+
+    function activeLeagues() { return ["A", "B", "C"].slice(0, readForm().courts); }
+
+    function postJson(body) {
+      return fetch(API_URL, {
+        method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(body)
+      }).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); });
+    }
+
+    function loadLeague(league) {
+      var url = new URL(API_URL);
+      url.searchParams.set("mode", "tournament");
+      url.searchParams.set("league", league);
+      url.searchParams.set("t", Date.now());
+      return fetch(url).then(function (r) { return r.json(); }).then(function (d) {
+        if (d && !d.error) {
+          bracketData[league] = d;
+          workLayout[league] = (d.layout || []).slice();
+        }
+      }).catch(function () {});
+    }
+
+    function loadAll() {
+      return Promise.all(["A", "B", "C"].map(loadLeague)).then(function () {
+        refreshRoundAvailability();
+        renderBracketEditor();
+      });
+    }
+
+    // 枠の番号 -> 表示用の中身(ブロック番号と名前)
+    function slotInfo(league, index) {
+      var d = bracketData[league];
+      var id = workLayout[league][index];
+      if (id === null || id === undefined) return null;
+      var name = "";
+      var blocks = d.blocks || [];
+      for (var i = 0; i < blocks.length; i++) {
+        if (blocks[i].id === id) name = blocks[i].representative || "";
+      }
+      if (!name) name = "(未定)";
+      return { id: id, name: name };
+    }
+
+    function layoutChanged(league) {
+      var a = workLayout[league], b = bracketData[league].layout || [];
+      return a.length !== b.length || a.some(function (v, i) { return v !== b[i]; });
+    }
+
+    function chipHtml(league, index) {
+      var info = slotInfo(league, index);
+      var attrs = ' draggable="true" data-league="' + league + '" data-index="' + index + '"';
+      var cls = "bk-chip" + (info ? "" : " is-empty") +
+        (selected && selected.league === league && selected.index === index ? " is-selected" : "");
+      if (!info) return '<button type="button" class="' + cls + '"' + attrs + '>シード(空き)</button>';
+      return '<button type="button" class="' + cls + '"' + attrs + '><small>第' + info.id + 'ブロック</small>' + escapeHtml(info.name) + '</button>';
+    }
+
+    function renderBracketEditor() {
+      var leagues = activeLeagues();
+      var html = "";
+      leagues.forEach(function (league) {
+        var d = bracketData[league];
+        if (!d) {
+          html += '<div class="bk-court"><div class="bk-title">' + league + 'コート</div><span class="note">取得できませんでした(通信エラー、またはシートなし)。</span></div>';
+          return;
+        }
+        var size = d.bracketSize;
+        var odd = (d.blockCount || 0) % 2 === 1;
+        html += '<div class="bk-court" data-court="' + league + '"><div class="bk-title">' + league + 'コート<small>リーグ ' +
+          (d.blockCount || 0) + ' / ' + size + '枠' +
+          (d.layoutApplied ? ' / 手で入れ替え済み' : '') + (layoutChanged(league) ? ' / <b style="color:#b3261e">未保存の変更あり</b>' : '') +
+          '</small></div>';
+        if (odd) html += '<div class="bk-warn">リーグの数が奇数です。偶数にそろえるのがおすすめです(奇数だと1人だけ1回戦が不戦になります)。</div>';
+        if (d.layoutStale) html += '<div class="bk-warn">保存済みの並びが今のリーグ数と合わないため、標準の並びを使っています。</div>';
+        html += '<div class="bk-groups">';
+        var groupSize = Math.min(4, size);
+        for (var g = 0; g < size; g += groupSize) {
+          html += '<div class="bk-group"><div class="bk-group-label">' + (groupSize === 4 ? '2回戦で当たる4人' : '対戦') + '</div>';
+          for (var p = g; p < g + groupSize; p += 2) {
+            html += '<div class="bk-pair">' + chipHtml(league, p) + chipHtml(league, p + 1) + '</div>';
+          }
+          html += '</div>';
+        }
+        html += '</div><div class="bk-actions">' +
+          '<button type="button" data-act="save" data-league="' + league + '"' + (layoutChanged(league) ? '' : ' disabled') + '>この並びを保存</button>' +
+          '<button type="button" class="secondary" data-act="undo" data-league="' + league + '">編集を取り消す</button>' +
+          '<button type="button" class="secondary" data-act="reset" data-league="' + league + '">初期の並びに戻す</button>' +
+          '</div><div class="status" data-msg="' + league + '"></div></div>';
+      });
+      bkBody.innerHTML = html || "コートがありません。";
+    }
+
+    function swap(league, i, j) {
+      if (i === j) return;
+      var l = workLayout[league];
+      var t = l[i]; l[i] = l[j]; l[j] = t;
+    }
+
+    function setMsg(league, text, kind) {
+      var el = bkBody.querySelector('[data-msg="' + league + '"]');
+      if (el) { el.textContent = text; el.className = "status" + (kind ? " is-" + kind : ""); }
+    }
+
+    function sendLayout(league, layout, okText) {
+      if (!adminToken) { setMsg(league, "先に管理パスワードでログインしてください。", "warn"); return; }
+      setMsg(league, "保存中…", "");
+      postJson({ action: "setBracketLayout", token: adminToken, league: league, layout: layout }).then(function (res) {
+        if (!res || !res.ok) { setMsg(league, (res && res.error) || "保存できませんでした(パスワード違い、または並びが不正)。", "warn"); return; }
+        if (res.data && !res.data.error) {
+          bracketData[league] = res.data;
+          workLayout[league] = (res.data.layout || []).slice();
+        }
+        selected = null;
+        refreshRoundAvailability();
+        renderBracketEditor();
+        setMsg(league, okText, "ok");
+      }).catch(function () { setMsg(league, "通信に失敗しました。もう一度お試しください。", "warn"); });
+    }
+
+    bkBody.addEventListener("click", function (event) {
+      var button = event.target.closest("button");
+      if (!button) return;
+      var league = button.dataset.league;
+      if (button.dataset.act === "save") { sendLayout(league, workLayout[league], "保存しました。トーナメント表に反映されます。"); return; }
+      if (button.dataset.act === "reset") { if (confirm(league + "コートの並びを初期(標準)に戻しますか?")) sendLayout(league, null, "初期の並びに戻しました。"); return; }
+      if (button.dataset.act === "undo") { workLayout[league] = (bracketData[league].layout || []).slice(); selected = null; renderBracketEditor(); return; }
+      if (button.classList.contains("bk-chip")) {
+        var index = Number(button.dataset.index);
+        if (selected && selected.league === league && selected.index !== index) {
+          swap(league, selected.index, index);
+          selected = null;
+        } else if (selected && selected.league === league && selected.index === index) {
+          selected = null;
+        } else {
+          selected = { league: league, index: index };
+        }
+        renderBracketEditor();
+      }
+    });
+
+    var dragFrom = null;
+    bkBody.addEventListener("dragstart", function (event) {
+      var chip = event.target.closest(".bk-chip");
+      if (!chip) return;
+      dragFrom = { league: chip.dataset.league, index: Number(chip.dataset.index) };
+      event.dataTransfer.effectAllowed = "move";
+      try { event.dataTransfer.setData("text/plain", "x"); } catch (e) {}
+    });
+    bkBody.addEventListener("dragover", function (event) {
+      var chip = event.target.closest(".bk-chip");
+      if (chip && dragFrom && chip.dataset.league === dragFrom.league) {
+        event.preventDefault();
+        chip.classList.add("is-over");
+      }
+    });
+    bkBody.addEventListener("dragleave", function (event) {
+      var chip = event.target.closest(".bk-chip");
+      if (chip) chip.classList.remove("is-over");
+    });
+    bkBody.addEventListener("drop", function (event) {
+      var chip = event.target.closest(".bk-chip");
+      if (!chip || !dragFrom || chip.dataset.league !== dragFrom.league) return;
+      event.preventDefault();
+      swap(dragFrom.league, dragFrom.index, Number(chip.dataset.index));
+      dragFrom = null; selected = null;
+      renderBracketEditor();
+    });
+    bkBody.addEventListener("dragend", function () { dragFrom = null; });
+
+    // ログイン(tournament.html と同じ sessionStorage のパスワードを使う)
+    var loginStatus = document.getElementById("bk-login-status");
+    function applyLogin(token, silent) {
+      return postJson({ action: "verify", token: token }).then(function (res) {
+        if (res && res.ok) {
+          adminToken = token; setToken(token);
+          document.getElementById("bk-login").hidden = true;
+        } else if (!silent) {
+          loginStatus.textContent = "パスワードが違います。"; loginStatus.className = "status is-warn";
+        }
+      }).catch(function () {
+        if (!silent) { loginStatus.textContent = "通信に失敗しました。"; loginStatus.className = "status is-warn"; }
+      });
+    }
+    document.getElementById("bk-login-button").addEventListener("click", function () {
+      var v = document.getElementById("bk-password").value;
+      if (v) applyLogin(v, false);
+    });
+    document.getElementById("bk-password").addEventListener("keydown", function (e) {
+      if (e.key === "Enter") document.getElementById("bk-login-button").click();
+    });
+    if (getToken()) applyLogin(getToken(), true);
+
+    loadAll();
 
     buildWinsGrid();
     writeForm(window.RRST_DEFAULT_SETTINGS);

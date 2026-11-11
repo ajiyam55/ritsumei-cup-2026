@@ -124,6 +124,12 @@
       white-space: nowrap;
     }
 
+    .publish-state { font-weight: bold; }
+    .publish-state.is-off { color: #b3261e; }
+    .private-notice {
+      padding: 28px 16px; text-align: center; color: var(--muted, #777);
+      background: #fff; border: 1px solid #e3dcde; border-radius: 12px; font-weight: bold;
+    }
     .admin-controls {
       flex: 1 1 100%;
       order: 10;
@@ -931,6 +937,8 @@
       </div>
       <div id="admin-controls" class="admin-controls" hidden>
         <span>スコアを入力したら、そのコートの「保存」を押してください(自動では保存されません)。ほかの人が入力した内容を見るときや、編集を始める前は「更新」を押して最新にしてください。</span>
+        <span id="publish-state" class="publish-state"></span>
+        <button id="publish-toggle" type="button">公開する</button>
         <button id="logout" type="button">ログアウト</button>
       </div>
     </header>
@@ -960,7 +968,7 @@
     // 使うコート(大会設定のコート数で A・B だけ、または A・B・C になる。読み込み後に決まる)
     let BLOCKS = ["A", "B", "C"];
     const DEFAULT_BRACKET_SIZE = 16;
-    const TOURNAMENT_API_BASE_URL = "https://script.google.com/macros/s/AKfycbxfVJu55lT5Hf2k30viKzEug90YrvPfM4wVEcJvehdIURJ9oIrXYJBIf9VEC026kFz0Ew/exec";
+    const TOURNAMENT_API_BASE_URL = "https://script.google.com/macros/s/AKfycbyqiV-OKw7RR9SssndobR12ytFvNNmveXh-U8r4IFNdEzpd880zKbvs_fmSEko-Fvmo/exec";
     const WANT_ADMIN = new URLSearchParams(window.location.search).get("admin") === "1";
     const TOKEN_KEY = "rrst_admin_token";
 
@@ -1130,6 +1138,9 @@
       if (round === 0 && !hasRed && !hasBlue) return "";
       // 1回戦で相手がいない枠(シード)は1回戦には描かず、2回戦の枠に「シード」として直接入れる
       if (round === 0 && (!hasRed || !hasBlue)) return "";
+      // シード(相手枠が空きで、勝ち上がりをそのまま通す試合)と空き枠は、何回戦でも描かない。
+      // シードの選手は次の回戦の枠に「シード」の印つきで直接入る。
+      if (match.bye || match.dead) return "";
 
       const rowSpan = 2 ** (round + 1);
       const rowStart = (matchIndex - 1) * rowSpan + 1;
@@ -1142,10 +1153,10 @@
       // 1回戦のシード(不戦勝)は1回戦に線が無いので、勝ち上がりの線の色には数えない
       const feederAdvanced = feeders.some(feeder => feeder.winner);
       // 前の回戦から線が来る試合が1つも無い(両方シード)ときは、左の線を描かない
-      const hasFeederLine = feeders.some(feeder => !feeder.bye);
-      // 2回戦の枠にいる選手が1回戦のシード(相手なしで勝ち上がった枠)かどうか
-      const redSeed = round === 1 && Boolean(feeders[0] && feeders[0].bye);
-      const blueSeed = round === 1 && Boolean(feeders[1] && feeders[1].bye);
+      const hasFeederLine = feeders.some(feeder => !feeder.bye && !feeder.dead);
+      // この枠の選手が、前の回戦をシード(相手なしで通過)してきたかどうか
+      const redSeed = round > 0 && Boolean(feeders[0] && feeders[0].bye);
+      const blueSeed = round > 0 && Boolean(feeders[1] && feeders[1].bye);
       const editable = Boolean(
         hasRed && hasBlue && !match.red.pending && !match.blue.pending
       );
@@ -1375,7 +1386,29 @@
       });
     }
 
+    // トーナメント表を公開しているか(サーバーの値。非公開のときは管理者以外には表を見せない)
+    let tournamentPublished = true;
+
+    function renderPublishControls() {
+      const label = document.getElementById("publish-state");
+      const button = document.getElementById("publish-toggle");
+      if (!label || !button) return;
+      label.textContent = tournamentPublished ? "現在:公開中" : "現在:非公開(管理者だけに見えています)";
+      label.classList.toggle("is-off", !tournamentPublished);
+      button.textContent = tournamentPublished ? "非公開にする" : "公開する";
+    }
+
     function renderTournament() {
+      renderPublishControls();
+      if (!isAdmin() && !tournamentPublished) {
+        hideNameTip();
+        const podiumSection = document.getElementById("podium-section");
+        podiumSection.innerHTML = "";
+        podiumSection.hidden = true;
+        document.getElementById("final-section").innerHTML = '<p class="private-notice">トーナメント表は、公開までしばらくお待ちください。</p>';
+        document.getElementById("bracket-board").innerHTML = "";
+        return;
+      }
       const state = captureViewState();
       hideNameTip();
       const podium = podiumMarkup();
@@ -1547,6 +1580,7 @@
     }
 
     function applyLeagueData(block, data) {
+      if (typeof data.published === "boolean") tournamentPublished = data.published;
       tournamentData[block] = {
         matches: Array.isArray(data.matches) ? data.matches : [],
         bracketSize: data.bracketSize || DEFAULT_BRACKET_SIZE,
@@ -1937,6 +1971,28 @@
       document.getElementById("login-password").value = "";
       renderTournament();
     }
+
+    document.getElementById("publish-toggle").addEventListener("click", async () => {
+      if (!adminToken) return;
+      const next = !tournamentPublished;
+      const question = next
+        ? "トーナメント表を公開しますか?\n公開すると、誰でも見られるようになります。"
+        : "トーナメント表を非公開にしますか?\n非公開にすると、管理者以外には「公開までお待ちください」と表示されます。";
+      if (!window.confirm(question)) return;
+      const button = document.getElementById("publish-toggle");
+      button.disabled = true;
+      try {
+        const data = await postJson({ action: "setTournamentPublished", token: adminToken, published: next });
+        if (!data || !data.ok) throw new Error((data && data.error) || "保存できませんでした");
+        tournamentPublished = Boolean(data.published);
+        renderTournament();
+        window.alert(tournamentPublished ? "公開しました。" : "非公開にしました。");
+      } catch (error) {
+        window.alert("切り替えられませんでした: " + error.message);
+      } finally {
+        button.disabled = false;
+      }
+    });
 
     function logout(message = "") {
       adminToken = "";
