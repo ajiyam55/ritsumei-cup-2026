@@ -284,7 +284,7 @@
 
   <script src="settings.js?v=20261110"></script>
   <script>
-    const API_BASE_URL = "https://script.google.com/macros/s/AKfycbxfVJu55lT5Hf2k30viKzEug90YrvPfM4wVEcJvehdIURJ9oIrXYJBIf9VEC026kFz0Ew/exec";
+    let API_BASE_URL = ""; // documents/settings.txt の apiUrl を読み込み後に入れる
     const COURTS = [
       { key: "A", label: "Aコート" },
       { key: "B", label: "Bコート" },
@@ -449,6 +449,7 @@
 
     // 大会設定(コート数)を読んでから表示を始める。読めなくても初期値で動く。
     window.RRST_SETTINGS_READY.then(() => {
+      API_BASE_URL = window.RRST_SETTINGS.apiUrl;
       loadAll();
       // 表示専用の画面で、開く人も少ない想定なので自動更新しておく
       setInterval(loadAll, 10000);

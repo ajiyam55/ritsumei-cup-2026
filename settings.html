@@ -24,6 +24,12 @@
     }
 
     body { padding: 64px clamp(12px, 3vw, 28px) 48px; }
+    .gate { min-height: 70vh; display: grid; place-items: center; padding: 16px; }
+    .gate-box { width: min(380px, 100%); display: grid; gap: 10px; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
+    .gate-box h2 { margin: 0; font-size: 1.1rem; }
+    .gate-box label { display: grid; gap: 4px; font-size: 0.82rem; font-weight: bold; }
+    .gate-box input { min-height: 40px; padding: 4px 10px; font: inherit; border: 1px solid #c9c0c3; border-radius: 8px; }
+    .gate[hidden], .page[hidden], .gate-box label[hidden] { display: none; }
     .page { width: min(820px, 100%); margin: 0 auto; }
 
     .back-button {
@@ -58,6 +64,8 @@
     .choice { display: inline-flex; align-items: center; gap: 6px; margin-right: 12px; cursor: pointer; }
     .choice input { width: 18px; height: 18px; accent-color: var(--primary); }
 
+    .choice { white-space: nowrap; }
+    .url-input { flex: 1 1 100%; min-height: 38px; padding: 4px 10px; font: 0.8rem ui-monospace, Menlo, Consolas, monospace; border: 1px solid #c9c0c3; border-radius: 8px; background: #fff; }
     .wins-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px 16px; width: 100%; }
     .wins-grid label { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 0.9rem; }
     .wins-grid .sub { display: block; color: var(--muted); font-size: 0.72rem; }
@@ -101,6 +109,8 @@
     .bk-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
     .bk-group { border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 6px; }
     .bk-group-label { font-size: 0.68rem; color: var(--muted); margin-bottom: 4px; }
+    .bk-badge { display: inline-block; justify-self: start; padding: 0 8px; border-radius: 999px; font-size: 0.66rem; font-weight: bold; line-height: 1.7; color: var(--primary); background: #fbeff0; border: 1px solid var(--primary); }
+    .bk-badge.is-gray { color: var(--muted); background: #f1eeef; border-color: #c9c0c3; }
     .bk-pair { display: grid; gap: 3px; padding: 4px 0; }
     .bk-pair + .bk-pair { border-top: 1px dashed var(--line); }
     .bk-chip {
@@ -127,7 +137,22 @@
     }
   </script>
 
-  <main class="page">
+  <div id="gate" class="gate">
+    <form id="gate-form" class="gate-box">
+      <h2>管理者ログイン</h2>
+      <p class="note" style="margin:0 0 8px">この画面は管理者用です。開くたびにパスワードが必要です。</p>
+      <label id="gate-url-row" hidden>APIのURL(settings.txt に未設定のため入力)
+        <input type="text" id="gate-url" class="url-input" placeholder="https://script.google.com/macros/s/…/exec" spellcheck="false">
+      </label>
+      <label>パスワード
+        <input type="password" id="gate-password" autocomplete="off" required>
+      </label>
+      <button type="submit" id="gate-button">ログイン</button>
+      <p id="gate-error" class="bk-warn" role="alert"></p>
+    </form>
+  </div>
+
+  <main class="page" id="main" hidden>
     <h1>大会設定</h1>
     <p class="lead">
       回戦ごとの本数・開催日・コート数を決めて、設定の文章を作る画面です。
@@ -145,8 +170,20 @@
 
       <div class="field">
         <span class="label">応募セクション</span>
-        <label class="choice"><input type="checkbox" id="entry-open">index.html に「応募」を表示する</label>
+        <label class="choice"><input type="checkbox" id="entry-open">「応募」を表示する</label>
         <span class="hint">受付期間だけチェックを入れます。チェックなしだと、応募のセクションとメニューの「応募」が消えます。</span>
+      </div>
+
+      <div class="field">
+        <label for="api-url">APIのURL</label>
+        <input type="text" id="api-url" class="url-input" placeholder="https://script.google.com/macros/s/…/exec" spellcheck="false">
+        <span class="hint">Apps Script を「新しいデプロイ」にして URL が変わったときだけ書き換えます(全ページ共通の1つです)。</span>
+      </div>
+
+      <div class="field">
+        <label for="entry-form-url">応募フォームのURL</label>
+        <input type="text" id="entry-form-url" class="url-input" placeholder="https://forms.gle/…" spellcheck="false">
+        <span class="hint">「応募」を表示するとき、index.html のボタンが開く Google フォームのURLです。</span>
       </div>
 
       <div class="field">
@@ -169,14 +206,9 @@
     <div class="card">
       <p class="note" style="margin-top:0">
         各コートのリーグ優勝者の並びです。1回戦で当たる2人が1組、そのとなりの組の勝者と2回戦で当たります。
-        入れ替えたい2つを<b>順にタップ</b>(またはドラッグ)で交換できます。「シードにする」ときは空きの枠と交換します。
+        入れ替えたい2つを<b>順にタップ</b>(またはドラッグ)で交換できます。2回戦シードにしたい人は、「勝者は2回戦シード」の組に入れてください(空き枠と交換して組を空にしても作れます)。
         ここだけは設定ファイルではなく<b>APIに保存</b>され、「この並びを保存」でトーナメント表にすぐ反映されます。
       </p>
-      <div class="bk-login" id="bk-login">
-        <input type="password" id="bk-password" placeholder="管理パスワード" autocomplete="off">
-        <button type="button" id="bk-login-button">ログイン</button>
-        <span class="status" id="bk-login-status"></span>
-      </div>
       <div id="bk-body">読み込み中…</div>
       <p class="bk-warn">※ 試合の点数を入れたあとに並びを入れ替えると、変わった試合の点数は消えて見えなくなります。入れ替えは試合前に行ってください。</p>
     </div>
@@ -254,6 +286,25 @@
     }
 
     // 有効なコートのどこにも無い回戦は「なし」表示にする(データ未取得なら何もしない)
+    // その回戦が、有効なコートのどこかにあるか(データ未取得のときは「ある」とみなす)
+    function roundExists(key) {
+      var known = false, found = false;
+      ["A", "B", "C"].slice(0, readForm().courts).forEach(function (lg) {
+        var d = bracketData[lg];
+        if (d && d.bracketSize) {
+          known = true;
+          if (roundNamesFor(d.bracketSize).indexOf(key) >= 0) found = true;
+        }
+      });
+      return !known || found;
+    }
+
+    var publishedSettings = null;
+    function renderPublished() {
+      if (!publishedSettings) return;
+      publishedEl.innerHTML = (window.RRST_SETTINGS_LOADED ? "" : "<b>settings.txt が見つからない、または読めません。</b>いまは初期値で動いています。<br>") + summary(publishedSettings);
+    }
+
     function refreshRoundAvailability() {
       var courts = readForm().courts;
       var leagues = ["A", "B", "C"].slice(0, courts);
@@ -272,18 +323,23 @@
         label.querySelector("select").hidden = none;
         label.querySelector(".none-label").hidden = !none;
       });
+      refreshOutput();
+      renderPublished();
     }
 
     function readForm() {
       var courtsInput = document.querySelector('input[name="courts"]:checked');
       var wins = {};
       winsGrid.querySelectorAll("select").forEach(function (select) {
-        wins[select.dataset.round] = Number(select.value);
+        // 今の人数で存在しない回戦(「なし」表示のもの)は 0 にする
+        wins[select.dataset.round] = select.hidden ? 0 : Number(select.value);
       });
       return {
         eventDate: dateInput.value,
         courts: courtsInput ? Number(courtsInput.value) : 3,
         entryOpen: document.getElementById("entry-open").checked,
+        apiUrl: document.getElementById("api-url").value.trim(),
+        entryFormUrl: document.getElementById("entry-form-url").value.trim(),
         wins: wins
       };
     }
@@ -291,10 +347,13 @@
     function writeForm(settings) {
       dateInput.value = settings.eventDate;
       document.getElementById("entry-open").checked = settings.entryOpen === true;
+      document.getElementById("api-url").value = settings.apiUrl || "";
+      document.getElementById("entry-form-url").value = settings.entryFormUrl || "";
       var radio = document.querySelector('input[name="courts"][value="' + settings.courts + '"]');
       if (radio) radio.checked = true;
       winsGrid.querySelectorAll("select").forEach(function (select) {
         var value = settings.wins[select.dataset.round];
+        if (!(value >= 1)) return; // 0(なし)のときは選択肢をそのままにする
         // 4本先取以上など、このフォームにない値が入っていたら選択肢に足す
         if (!select.querySelector('option[value="' + value + '"]')) {
           select.insertAdjacentHTML("beforeend", '<option value="' + value + '">' + value + '本先取</option>');
@@ -309,6 +368,8 @@
         '  "eventDate": ' + JSON.stringify(settings.eventDate) + ",",
         '  "courts": ' + settings.courts + ",",
         '  "entryOpen": ' + (settings.entryOpen ? "true" : "false") + ",",
+        '  "apiUrl": ' + JSON.stringify(settings.apiUrl) + ",",
+        '  "entryFormUrl": ' + JSON.stringify(settings.entryFormUrl) + ",",
         '  "wins": {'
       ];
       var keys = ROUND_ITEMS.map(function (item) { return item.key; });
@@ -321,7 +382,9 @@
 
     function summary(settings) {
       var rounds = ROUND_ITEMS.map(function (item) {
-        return escapeHtml(item.key) + ": <b>" + settings.wins[item.key] + "本先取</b>";
+        var wins = settings.wins[item.key];
+        var none = !(wins >= 1) || (item.key !== "最終戦" && !roundExists(item.key));
+        return escapeHtml(item.key) + ": <b>" + (none ? "なし" : wins + "本先取") + "</b>";
       }).join(" / ");
       return "開催日: <b>" + escapeHtml(window.RRST_formatDate(settings.eventDate, "long") || settings.eventDate) + "</b><br>" +
         "コート数: <b>" + settings.courts + "コート</b><br>" +
@@ -387,19 +450,18 @@
     });
     winsGrid.addEventListener("change", refreshOutput);
     document.getElementById("entry-open").addEventListener("change", refreshOutput);
+    document.getElementById("api-url").addEventListener("input", refreshOutput);
+    document.getElementById("entry-form-url").addEventListener("input", refreshOutput);
 
 
     // ===== 対戦の並び(人の入れ替え) =====
-    var API_URL = "https://script.google.com/macros/s/AKfycbyqiV-OKw7RR9SssndobR12ytFvNNmveXh-U8r4IFNdEzpd880zKbvs_fmSEko-Fvmo/exec";
-    var TOKEN_KEY = "rrst_admin_token";
+    var API_URL = ""; // 公開中の settings.txt の apiUrl(読み込み後に入る)
     var bracketData = {};   // リーグ => サーバーのデータ
     var workLayout = {};    // リーグ => 編集中の並び(枠の順にブロック番号 / null)
     var selected = null;    // { league, index }
     var adminToken = "";
     var bkBody = document.getElementById("bk-body");
 
-    function getToken() { try { return sessionStorage.getItem(TOKEN_KEY) || ""; } catch (e) { return ""; } }
-    function setToken(v) { try { sessionStorage.setItem(TOKEN_KEY, v); } catch (e) {} }
 
     function activeLeagues() { return ["A", "B", "C"].slice(0, readForm().courts); }
 
@@ -453,7 +515,7 @@
       var attrs = ' draggable="true" data-league="' + league + '" data-index="' + index + '"';
       var cls = "bk-chip" + (info ? "" : " is-empty") +
         (selected && selected.league === league && selected.index === index ? " is-selected" : "");
-      if (!info) return '<button type="button" class="' + cls + '"' + attrs + '>シード(空き)</button>';
+      if (!info) return '<button type="button" class="' + cls + '"' + attrs + '>(空き枠)</button>';
       return '<button type="button" class="' + cls + '"' + attrs + '><small>第' + info.id + 'ブロック</small>' + escapeHtml(info.name) + '</button>';
     }
 
@@ -478,8 +540,21 @@
         var groupSize = Math.min(4, size);
         for (var g = 0; g < size; g += groupSize) {
           html += '<div class="bk-group"><div class="bk-group-label">' + (groupSize === 4 ? '2回戦で当たる4人' : '対戦') + '</div>';
+          // 各組(1回戦で当たる2人)の状態: 2人 / 1人だけ / 空き
+          var kinds = [];
+          for (var q = g; q < g + groupSize; q += 2) {
+            var cnt = (slotInfo(league, q) ? 1 : 0) + (slotInfo(league, q + 1) ? 1 : 0);
+            kinds.push(cnt === 2 ? "full" : cnt === 1 ? "lone" : "empty");
+          }
           for (var p = g; p < g + groupSize; p += 2) {
-            html += '<div class="bk-pair">' + chipHtml(league, p) + chipHtml(league, p + 1) + '</div>';
+            var k = kinds[(p - g) / 2];
+            var other = kinds.length === 2 ? kinds[1 - (p - g) / 2] : null;
+            var badge = "";
+            if (k === "lone") badge = '<span class="bk-badge">1回戦は不戦(相手なし)</span>';
+            else if (k === "empty") badge = '<span class="bk-badge is-gray">空き</span>';
+            else if (k === "full" && other === "empty") badge = '<span class="bk-badge">勝者は2回戦シード</span>';
+            if (k === "lone" && other === "empty") badge = '<span class="bk-badge">2回戦もシード</span>';
+            html += '<div class="bk-pair">' + badge + chipHtml(league, p) + chipHtml(league, p + 1) + '</div>';
           }
           html += '</div>';
         }
@@ -569,30 +644,11 @@
     });
     bkBody.addEventListener("dragend", function () { dragFrom = null; });
 
-    // ログイン(tournament.html と同じ sessionStorage のパスワードを使う)
-    var loginStatus = document.getElementById("bk-login-status");
-    function applyLogin(token, silent) {
-      return postJson({ action: "verify", token: token }).then(function (res) {
-        if (res && res.ok) {
-          adminToken = token; setToken(token);
-          document.getElementById("bk-login").hidden = true;
-        } else if (!silent) {
-          loginStatus.textContent = "パスワードが違います。"; loginStatus.className = "status is-warn";
-        }
-      }).catch(function () {
-        if (!silent) { loginStatus.textContent = "通信に失敗しました。"; loginStatus.className = "status is-warn"; }
-      });
+    // 開くたびにパスワードを確認する(前に入力した分は使い回さない。パスワードはこのページの中だけで持つ)
+    function startEditor() {
+      API_URL = window.RRST_SETTINGS.apiUrl || document.getElementById("gate-url").value.trim();
+      loadAll();
     }
-    document.getElementById("bk-login-button").addEventListener("click", function () {
-      var v = document.getElementById("bk-password").value;
-      if (v) applyLogin(v, false);
-    });
-    document.getElementById("bk-password").addEventListener("keydown", function (e) {
-      if (e.key === "Enter") document.getElementById("bk-login-button").click();
-    });
-    if (getToken()) applyLogin(getToken(), true);
-
-    loadAll();
 
     buildWinsGrid();
     writeForm(window.RRST_DEFAULT_SETTINGS);
@@ -601,13 +657,39 @@
     // 公開中の設定を読み、フォームの初期値にする(ファイルが無いときは初期値のまま)
     window.RRST_SETTINGS_READY.then(function (settings) {
       writeForm(settings);
+      if (!settings.apiUrl) document.getElementById("gate-url-row").hidden = false;
       if (window.RRST_SETTINGS_LOADED) {
         publishedText = generateText(settings);
-        publishedEl.innerHTML = summary(settings);
-      } else {
-        publishedEl.innerHTML = "<b>settings.txt が見つからない、または読めません。</b>いまは初期値で動いています。<br>" + summary(settings);
       }
+      publishedSettings = settings;
+      renderPublished();
       refreshOutput();
+    });
+
+    // ログイン画面: パスワードが合うまで設定画面を出さない
+    document.getElementById("gate-form").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var err = document.getElementById("gate-error");
+      var btn = document.getElementById("gate-button");
+      var pass = document.getElementById("gate-password").value;
+      var url = window.RRST_SETTINGS.apiUrl || document.getElementById("gate-url").value.trim();
+      if (!url) { err.textContent = "APIのURLを入力してください。"; return; }
+      btn.disabled = true; err.textContent = "確認中…";
+      API_URL = url;
+      postJson({ action: "verify", token: pass }).then(function (res) {
+        if (res && res.ok) {
+          adminToken = pass;
+          if (!window.RRST_SETTINGS.apiUrl) document.getElementById("api-url").value = url, refreshOutput();
+          document.getElementById("gate").hidden = true;
+          document.getElementById("main").hidden = false;
+          document.getElementById("gate-password").value = "";
+          startEditor();
+        } else {
+          err.textContent = "パスワードが違います。";
+        }
+      }).catch(function () {
+        err.textContent = "通信に失敗しました。URLと通信を確認してください。";
+      }).then(function () { btn.disabled = false; });
     });
   </script>
 </body>

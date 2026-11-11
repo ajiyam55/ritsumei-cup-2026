@@ -47,7 +47,7 @@ const CURRENT_MATCH_CACHE_KEY = "current_match";
 // 「呼び出し画面」タブにあるボタンで切り替える。PropertiesServiceに保存するので、
 // スプレッドシート側には何も残らない。
 const NEXT_MATCH_VISIBLE_PROPERTY = "nextMatchNamesVisible";
-const TOURNAMENT_PUBLISHED_PROPERTY = "tournamentPublished"; // トーナメント表の公開/非公開(未設定なら公開)
+const TOURNAMENT_PUBLISHED_PROPERTY = "tournamentPublished"; // トーナメント表の公開/非公開(未設定なら非公開)
 const REDACTED_TEAM = { num: "?", name: "ー" };
 
 // ---------------------------------------------------------------
@@ -222,7 +222,7 @@ function getTournamentData(event) {
 
 function isTournamentPublished() {
   const stored = PropertiesService.getScriptProperties().getProperty(TOURNAMENT_PUBLISHED_PROPERTY);
-  return stored !== "false";
+  return stored === "true"; // 一度も切り替えていないときは非公開
 }
 
 function setTournamentPublished(published) {

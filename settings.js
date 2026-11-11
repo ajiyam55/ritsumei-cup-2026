@@ -10,6 +10,8 @@
     eventDate: "2026-12-05", // 開催日(YYYY-MM-DD)
     courts: 3,               // コート数(2 または 3)
     entryOpen: false,        // 応募セクションを出すか(true / false)
+    apiUrl: "",              // API(Apps Script のウェブアプリURL。次の試合・呼び出し・トーナメント表など全部これ1つ)
+    entryFormUrl: "",        // 応募フォーム(Googleフォーム)のURL
     wins: { "1回戦": 1, "2回戦": 2, "3回戦": 2, "準々決勝": 2, "準決勝": 2, "最終戦": 2 }
   };
   var FALLBACK_WINS = 2; // 設定に無い回戦は、この本数先取
@@ -24,6 +26,8 @@
       out.eventDate = raw.eventDate;
     }
     if (typeof raw.entryOpen === "boolean") out.entryOpen = raw.entryOpen;
+    if (typeof raw.apiUrl === "string" && /^https:\/\/script\.google\.com\/\S+$/.test(raw.apiUrl.trim())) out.apiUrl = raw.apiUrl.trim();
+    if (typeof raw.entryFormUrl === "string" && /^https?:\/\/\S+$/.test(raw.entryFormUrl.trim())) out.entryFormUrl = raw.entryFormUrl.trim();
     var courts = Number(raw.courts);
     if (courts === 2 || courts === 3) out.courts = courts;
     if (raw.wins && typeof raw.wins === "object") {
@@ -70,6 +74,12 @@
     for (var j = 0; j < shows.length; j++) {
       var flag = shows[j].getAttribute("data-show-if");
       shows[j].style.display = settings[flag] === true ? "" : "none";
+    }
+    // data-href-setting="entryFormUrl" の付いたリンクは、設定のURLに差し替える
+    var links = document.querySelectorAll("[data-href-setting]");
+    for (var h = 0; h < links.length; h++) {
+      var url = settings[links[h].getAttribute("data-href-setting")];
+      if (url) links[h].setAttribute("href", url);
     }
     var nodes = document.querySelectorAll("[data-setting]");
     for (var i = 0; i < nodes.length; i++) {

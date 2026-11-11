@@ -1,4 +1,4 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbyqiV-OKw7RR9SssndobR12ytFvNNmveXh-U8r4IFNdEzpd880zKbvs_fmSEko-Fvmo/exec";
+// APIのURLは documents/settings.txt の apiUrl から読みます(settings.js が先に読み込まれている必要があります)
 
 function renderMatchRow(m) {
   return `<div class="match-row${m.current ? " is-current" : ""}">
@@ -43,6 +43,9 @@ async function fetchNextMatch() {
   fetchNextMatchInFlight = true;
 
   try {
+    await window.RRST_SETTINGS_READY; // 設定ファイルを読み終えてからURLを使う
+    const API_URL = window.RRST_SETTINGS.apiUrl;
+    if (!API_URL) throw new Error("settings.txt に apiUrl がありません");
     const res = await fetch(API_URL, { cache: "no-store" }); // キャッシュ無効化で常に最新データ取得
     if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
 
@@ -109,18 +112,21 @@ function startRefreshCooldown(buttons) {
   }, REFRESH_COOLDOWN_MS);
 }
 
+// 大会設定のコート数が2のときは、Cコートの欄を隠す(settings.js を script.js より先に読み込んでいるとき)
 function applyCourtSettings() {
- if (!window.RRST_SETTINGS_READY) return;
+  if (!window.RRST_SETTINGS_READY) return;
   window.RRST_SETTINGS_READY.then((settings) => {
-    ["a", "b", "c"].forEach((key, index) => {
+    const keys = ["a", "b", "c"];
+    keys.forEach((key, index) => {
       const numEl = document.getElementById(`match-${key}`);
       const courtEl = numEl && numEl.closest(".court");
       if (courtEl) courtEl.style.display = index >= settings.courts ? "none" : "";
     });
   });
- }
+}
 
 window.addEventListener("DOMContentLoaded", () => {
+  applyCourtSettings();
   fetchNextMatch();
 
   // タブ/アプリから戻ってきた時だけ自動で1回更新(常時ポーリングはしない)
@@ -184,12 +190,4 @@ document.addEventListener('DOMContentLoaded', function() {
       header.classList.remove('nav-open');
     });
   });
-
-  // メニューの外(ページ下部など)をタップしたら閉じる
-  document.addEventListener('click', function(e) {
-    if (header && header.classList.contains('nav-open') && !header.contains(e.target)) {
-      header.classList.remove('nav-open');
-    }
-  });
-  
 });

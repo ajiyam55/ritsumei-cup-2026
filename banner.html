@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>バナー自動生成 - 立命杯2026</title>
+  <script src="settings.js?v=20261110"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
@@ -234,6 +235,7 @@
       word-break: break-word;
       line-height: 1.15;
       display: -webkit-box;
+      line-clamp: 2;
       -webkit-line-clamp: 2;
       line-clamp: 2;
       -webkit-box-orient: vertical;
@@ -311,7 +313,7 @@
   <main class="page" id="page"></main>
 
   <script>
-    const API_BASE_URL = "https://script.google.com/macros/s/AKfycbxfVJu55lT5Hf2k30viKzEug90YrvPfM4wVEcJvehdIURJ9oIrXYJBIf9VEC026kFz0Ew/exec";
+    let API_BASE_URL = ""; // documents/settings.txt の apiUrl を読み込み後に入れる
     // Code.gs 側の BANNER_TOKEN と同じ値にしてください(スコアを書き換えられる管理者パスワードとは別物)。
     const BANNER_TOKEN = "banner-log-2026";
     const COURTS = {
@@ -339,7 +341,10 @@
         </div>
       `;
     } else {
-      runCourtPage(courtKey);
+      window.RRST_SETTINGS_READY.then(() => {
+        API_BASE_URL = window.RRST_SETTINGS.apiUrl;
+        runCourtPage(courtKey);
+      });
     }
 
     function runCourtPage(key) {

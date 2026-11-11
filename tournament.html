@@ -573,24 +573,6 @@
       display: none;
     }
 
-    /* 2回戦から登場するシード */
-    .seed-tag {
-      flex: 0 0 auto;
-      padding: 0 5px;
-      color: var(--primary);
-      background: #fbeff0;
-      border: 1px solid var(--primary-light);
-      border-radius: 999px;
-      font-size: 0.52rem;
-      font-weight: bold;
-      line-height: 1.5;
-      white-space: nowrap;
-    }
-
-    .seed-tag + .team-name {
-      flex: 1 1 auto;
-    }
-
     .match.is-bye {
       border: 0;
       background: transparent;
@@ -968,7 +950,7 @@
     // 使うコート(大会設定のコート数で A・B だけ、または A・B・C になる。読み込み後に決まる)
     let BLOCKS = ["A", "B", "C"];
     const DEFAULT_BRACKET_SIZE = 16;
-    const TOURNAMENT_API_BASE_URL = "https://script.google.com/macros/s/AKfycbyqiV-OKw7RR9SssndobR12ytFvNNmveXh-U8r4IFNdEzpd880zKbvs_fmSEko-Fvmo/exec";
+    let TOURNAMENT_API_BASE_URL = ""; // documents/settings.txt の apiUrl を読み込み後に入れる
     const WANT_ADMIN = new URLSearchParams(window.location.search).get("admin") === "1";
     const TOKEN_KEY = "rrst_admin_token";
 
@@ -1102,7 +1084,7 @@
 
       // 代表がまだ決まっていないブロック
       if (team.pending) {
-        return `<div class="team is-empty"><span class="team-name">${escapeHtml(name)}</span></div>`;
+        return `<div class="team is-empty"><span class="team-name">${escapeHtml(name) || "未定"}</span></div>`;
       }
 
       const score = team && team.score !== undefined && team.score !== "" ? team.score : "";
@@ -1113,9 +1095,8 @@
         ? `<input class="score-input" type="number" min="0" step="1" inputmode="numeric" data-block="${options.block}" data-round="${options.round}" data-match="${options.matchIndex}" data-color="${options.color}" value="${escapeHtml(score)}"${options.disabled ? " disabled" : ""}>`
         : `<span class="team-score">${score === "" ? "-" : escapeHtml(score)}</span>`;
 
-      const seedTag = options.seed ? `<span class="seed-tag">シード</span>` : "";
       return `<div class="team${winner}">
-        ${seedTag}<span class="team-name">${escapeHtml(number + name)}</span>
+        <span class="team-name">${escapeHtml(number + name)}</span>
         ${scoreMarkup}
       </div>`;
     }
@@ -1134,18 +1115,16 @@
       const hasRed = Boolean(match.red && (match.red.name || match.red.number));
       const hasBlue = Boolean(match.blue && (match.blue.name || match.blue.number));
 
-      // 1回戦で誰もいない枠は描かない。2回戦以降は「未定」の枠を常に出す
-      if (round === 0 && !hasRed && !hasBlue) return "";
-      // 1回戦で相手がいない枠(シード)は1回戦には描かず、2回戦の枠に「シード」として直接入れる
-      if (round === 0 && (!hasRed || !hasBlue)) return "";
-      // シード(相手枠が空きで、勝ち上がりをそのまま通す試合)と空き枠は、何回戦でも描かない。
-      // シードの選手は次の回戦の枠に「シード」の印つきで直接入る。
-      if (match.bye || match.dead) return "";
+      // 誰も入らない空き枠は描かない
+      if (match.dead || (round === 0 && !hasRed && !hasBlue)) return "";
+      // 相手のいない枠(シード)は、その回戦に「1人だけの枠」を置く(選手が決まる前は空の枠)
+      const isBye = Boolean(match.bye) || (round === 0 && (!hasRed || !hasBlue));
+      const byeTeam = hasRed ? match.red : hasBlue ? match.blue : null;
+      const byeKnown = Boolean(byeTeam && byeTeam.name && !byeTeam.pending);
 
       const rowSpan = 2 ** (round + 1);
       const rowStart = (matchIndex - 1) * rowSpan + 1;
-      const isBye = round === 0 && (!hasRed || !hasBlue);
-      const advanced = Boolean(match.winner || match.bye);
+      const advanced = Boolean(match.winner || (isBye && byeKnown));
       const feeders = round > 0 ? [
         getMatch(block, round - 1, matchIndex * 2 - 1),
         getMatch(block, round - 1, matchIndex * 2)
@@ -1153,10 +1132,7 @@
       // 1回戦のシード(不戦勝)は1回戦に線が無いので、勝ち上がりの線の色には数えない
       const feederAdvanced = feeders.some(feeder => feeder.winner);
       // 前の回戦から線が来る試合が1つも無い(両方シード)ときは、左の線を描かない
-      const hasFeederLine = feeders.some(feeder => !feeder.bye && !feeder.dead);
-      // この枠の選手が、前の回戦をシード(相手なしで通過)してきたかどうか
-      const redSeed = round > 0 && Boolean(feeders[0] && feeders[0].bye);
-      const blueSeed = round > 0 && Boolean(feeders[1] && feeders[1].bye);
+      const hasFeederLine = feeders.some(feeder => !feeder.dead);
       const editable = Boolean(
         hasRed && hasBlue && !match.red.pending && !match.blue.pending
       );
@@ -1182,8 +1158,10 @@
       return `<div class="${slotClass}" style="grid-row: ${rowStart} / span ${rowSpan};">
         <article class="${matchClass}">
           ${matchNumberMarkup}
-          ${teamMarkup(match.red, { block, round, matchIndex, color: "red", placeholder, editable, bye: isBye, seed: redSeed, disabled: tournamentData[block].saving })}
-          ${teamMarkup(match.blue, { block, round, matchIndex, color: "blue", placeholder, editable, bye: isBye, seed: blueSeed, disabled: tournamentData[block].saving })}
+          ${isBye
+            ? teamMarkup(byeTeam, { block, round, matchIndex, color: "red", placeholder: true, editable: false, bye: true })
+            : `${teamMarkup(match.red, { block, round, matchIndex, color: "red", placeholder, editable, bye: false, disabled: tournamentData[block].saving })}
+          ${teamMarkup(match.blue, { block, round, matchIndex, color: "blue", placeholder, editable, bye: false, disabled: tournamentData[block].saving })}`}
         </article>
       </div>`;
     }
@@ -1387,7 +1365,7 @@
     }
 
     // トーナメント表を公開しているか(サーバーの値。非公開のときは管理者以外には表を見せない)
-    let tournamentPublished = true;
+    let tournamentPublished = false; // サーバーから公開と返ってくるまでは非公開扱い
 
     function renderPublishControls() {
       const label = document.getElementById("publish-state");
@@ -2196,6 +2174,7 @@
     // 開いたときに1回だけ取得する。以降は「更新」ボタンを押したときだけ通信する。
     // 大会設定(コート数・何本先取か)を読んでから表示する。読めなくても初期値で動く。
     window.RRST_SETTINGS_READY.then(settings => {
+      TOURNAMENT_API_BASE_URL = settings.apiUrl;
       BLOCKS = ["A", "B", "C"].slice(0, settings.courts);
       renderTournament();
       initAdmin();
