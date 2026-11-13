@@ -42,6 +42,7 @@
     @media (max-width:767px){
       .entries-table td.team{white-space:nowrap;overflow-wrap:normal}
     }
+    .entries-table .match-sep{display:inline-block;margin:0 .5em;color:#a89fa3}
     .entries-table .narrow{width:1%;white-space:nowrap;text-align:center}
     @media (min-width:768px){
       .entries-frame{overflow-x:hidden}
@@ -187,7 +188,21 @@
       if (showPilot) tr.appendChild(td("", it.pilot));
       if (showTeam) tr.appendChild(td("team", it.team));
       if (showCourt) tr.appendChild(td("narrow", it.court));
-      if (showMatch) tr.appendChild(td("narrow", it.matches.join(" | "))); // 2つあるときは「3 / 12」のように並べる
+      if (showMatch) {
+        // 2つあるときは「3 ｜ 12」のように、区切りの左右に余白をあけて並べる
+        const matchTd = document.createElement("td");
+        matchTd.className = "narrow";
+        it.matches.forEach((v, i) => {
+          if (i) {
+            const sep = document.createElement("span");
+            sep.className = "match-sep";
+            sep.textContent = "｜";
+            matchTd.appendChild(sep);
+          }
+          matchTd.appendChild(document.createTextNode(v));
+        });
+        tr.appendChild(matchTd);
+      }
       if (showMsg) tr.appendChild(td("msg", it.msg));
       tbody.appendChild(tr);
     });
