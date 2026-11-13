@@ -39,6 +39,9 @@
     .entries-table .kana{display:block;font-size:.72rem;color:#777176}
     .entries-table .robot{font-weight:bold}
     .entries-table td.msg{white-space:pre-wrap}
+    @media (max-width:767px){
+      .entries-table td.team{white-space:nowrap;overflow-wrap:normal}
+    }
     .entries-table .narrow{width:1%;white-space:nowrap;text-align:center}
     @media (min-width:768px){
       .entries-frame{overflow-x:hidden}
@@ -176,7 +179,7 @@
       robotCell.appendChild(r);
       tr.appendChild(robotCell);
       if (showPilot) tr.appendChild(td("", it.pilot));
-      if (showTeam) tr.appendChild(td("", it.team));
+      if (showTeam) tr.appendChild(td("team", it.team));
       if (showCourt) tr.appendChild(td("narrow", it.court));
       if (showMatch) tr.appendChild(td("narrow", it.matches.join(" / "))); // 2つあるときは「3 / 12」のように並べる
       if (showMsg) tr.appendChild(td("msg", it.msg));
