@@ -190,4 +190,11 @@ document.addEventListener('DOMContentLoaded', function() {
       header.classList.remove('nav-open');
     });
   });
+
+    // メニューの外(ページ下部など)をタップしたら閉じる
+  document.addEventListener('click', function(e) {
+    if (header && header.classList.contains('nav-open') && !header.contains(e.target)) {
+      header.classList.remove('nav-open');
+    }
+  });
 });

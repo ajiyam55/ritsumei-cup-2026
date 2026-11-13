@@ -1,6 +1,6 @@
 // 出場機体一覧: CSVファイル1つを読み込んで、index.html の <div id="entry-list"> に表で表示する。
 // CSVは同じサイト内の静的ファイルを読むだけなので、Apps Script(API)は使わない。
-// 列(あるものだけ表示): 機体番号, 機体名, フリガナ, 操縦者名, 所属, 意気込み
+// 列(あるものだけ表示): 機体番号, 機体名, フリガナ, 操縦者名, 所属, コート名, 試合番号(見出しが「試合」で始まる列・「2戦目」「2試合目」のような列・そのすぐ右の見出しが空の列は、1つの欄に並べて表示)。意気込みは表示しない
 //   ・1行目が見出し(上の名前)なら、列の順番が違っても自動で合わせる
 //   ・見出しが無ければ、上の順番どおりとして読む
 //   ・文字コードはUTF-8でもExcel標準のShift_JISでも自動判定。"..." で囲んだ項目内のカンマ・改行もOK
@@ -18,7 +18,9 @@
     { key: "kana", label: "フリガナ", names: ["出場機体のフリガナ", "機体のフリガナ", "機体名フリガナ", "フリガナ", "ふりがな", "ヨミ"] },
     { key: "pilot", label: "操縦者名", names: ["操縦者名", "操縦者", "操縦者氏名", "名前", "氏名"] },
     { key: "team", label: "所属団体", names: ["所属団体", "所属", "団体", "チーム"] },
-    { key: "msg", label: "意気込み", names: ["意気込み", "コメント", "一言"] }
+    { key: "msg", label: "意気込み", names: ["意気込み", "コメント", "一言"] },
+    { key: "court", label: "コート", names: ["コート名", "コート", "出場コート", "ブロック"] },
+    { key: "match", label: "試合番号", names: ["試合番号", "試合", "第一試合", "初戦"] } // 「試合」で始まる列は全部使う
   ];
 
   const root = document.getElementById("entry-list");
@@ -37,9 +39,14 @@
     .entries-table .kana{display:block;font-size:.72rem;color:#777176}
     .entries-table .robot{font-weight:bold}
     .entries-table td.msg{white-space:pre-wrap}
+    .entries-table .narrow{width:1%;white-space:nowrap;text-align:center}
     @media (min-width:768px){
       .entries-frame{overflow-x:hidden}
       .entries-table{width:100%}
+    }
+    .entries-table.wide{width:${MOBILE_TABLE_WIDTH_PX + 60}px}
+    @media (min-width:768px){
+      .entries-table.wide{width:100%}
     }
   `;
   style.textContent += "#entries[hidden]{display:none!important}";
@@ -85,10 +92,20 @@
       const idx = head.findIndex((h) => f.names.map(norm).includes(h));
       if (idx >= 0) map[f.key] = idx;
     });
-    if (Object.keys(map).length >= 2) return { map, body: rows.slice(1) }; // 見出しあり
+    // 「試合」で始まる見出しの列と、そのすぐ右にある見出しが空の列は、まとめて1つの「試合番号」欄にする
+    const matchCols = [];
+    const matchNames = FIELDS.find((f) => f.key === "match").names.map(norm);
+    head.forEach((h, i) => {
+      if (h.startsWith("試合") || /^[0-9０-９]+(戦目|試合目)$/.test(h) || matchNames.includes(h)) {
+        matchCols.push(i);
+        for (let j = i + 1; j < head.length && head[j] === ""; j++) matchCols.push(j);
+      }
+    });
+    if (matchCols.length) map.match = matchCols[0];
+    if (Object.keys(map).length >= 2) return { map, body: rows.slice(1), matchCols, matchHeads: [] }; // 見出しあり
     const fallback = {};
     FIELDS.forEach((f, i) => { fallback[f.key] = i; });
-    return { map: fallback, body: rows };
+    return { map: fallback, body: rows, matchCols: [], matchHeads: [] };
   }
 
   function td(className, text) {
@@ -99,11 +116,13 @@
   }
 
   function render(rows) {
-    const { map, body } = mapColumns(rows);
+    const { map, body, matchCols, matchHeads } = mapColumns(rows);
     const get = (r, key) => (map[key] === undefined ? "" : (r[map[key]] || "").trim());
     const items = body.map((r) => ({
       num: get(r, "num"), robot: get(r, "robot"), kana: get(r, "kana"),
-      pilot: get(r, "pilot"), team: get(r, "team"), msg: get(r, "msg")
+      pilot: get(r, "pilot"), team: get(r, "team"), msg: get(r, "msg"),
+      court: get(r, "court"), match: get(r, "match"),
+      matches: matchCols.map((i) => (r[i] || "").trim()).filter((v) => v !== "")
     })).filter((it) => it.num || it.robot || it.pilot);
     if (items.length === 0) return;
 
@@ -115,10 +134,12 @@
 
     // CSVに入っている列だけ表示する(例: フリガナ・操縦者・意気込みが空なら列ごと出さない)
     const has = (key) => items.some((it) => it[key] !== "");
-    const showKana = has("kana"), showPilot = has("pilot"), showTeam = has("team"), showMsg = has("msg"), showNum = has("num");
+    const showKana = has("kana"), showPilot = has("pilot"), showTeam = has("team"), showMsg = false, showNum = has("num"); // 意気込みは表示しない
+    const showCourt = has("court");
+    const showMatch = items.some((it) => it.matches.length > 0);
 
     const table = document.createElement("table");
-    table.className = "entries-table";
+    table.className = "entries-table" + (showCourt || showMatch ? " wide" : "");
     const thead = document.createElement("thead");
     const hr = document.createElement("tr");
     const heads = [];
@@ -126,9 +147,12 @@
     heads.push("機体名");
     if (showPilot) heads.push("操縦者名");
     if (showTeam) heads.push("所属");
+    if (showCourt) heads.push("コート");
+    if (showMatch) heads.push("試合番号");
     if (showMsg) heads.push("意気込み");
     heads.forEach((t) => {
       const th = document.createElement("th");
+      if (t === "コート" || t === "試合番号") th.className = "narrow";
       th.textContent = t;
       hr.appendChild(th);
     });
@@ -153,6 +177,8 @@
       tr.appendChild(robotCell);
       if (showPilot) tr.appendChild(td("", it.pilot));
       if (showTeam) tr.appendChild(td("", it.team));
+      if (showCourt) tr.appendChild(td("narrow", it.court));
+      if (showMatch) tr.appendChild(td("narrow", it.matches.join(" / "))); // 2つあるときは「3 / 12」のように並べる
       if (showMsg) tr.appendChild(td("msg", it.msg));
       tbody.appendChild(tr);
     });
