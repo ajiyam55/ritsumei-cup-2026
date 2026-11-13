@@ -1064,10 +1064,10 @@ footer {
 
   /* 次の試合の見出し: スマホで「次の試合」+最終更新+更新ボタンを1行にする */
   @media (max-width: 600px) {
-    #next-match .next-match-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: nowrap; gap: 6px; }
-    #next-match .next-match-head h2 { font-size: 1.05rem; white-space: nowrap; margin: 0; }
-    #next-match .refresh-area { display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin: 0; }
-    #next-match .last-updated { font-size: 0.7rem; white-space: nowrap; }
-    #next-match .refresh-btn { padding: 4px 8px; font-size: 0.75rem; white-space: nowrap; gap: 3px; }
+    #next-match .next-match-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: nowrap; gap: 8px; box-sizing: border-box; width: 100%; padding: 0 6px 0 2px; }
+    #next-match .next-match-head h2 { font-size: 1.25rem; line-height: 1.2; white-space: nowrap; margin: 0; flex: 0 0 auto; }
+    #next-match .refresh-area { display: flex; align-items: center; gap: 6px; margin: 0 0 0 auto; padding: 0; flex: 0 1 auto; min-width: 0; }
+    #next-match .last-updated { font-size: 0.72rem; line-height: 1; white-space: nowrap; margin: 0; padding: 0; }
+    #next-match .refresh-btn { display: inline-flex; align-items: center; justify-content: center; gap: 3px; margin: 0; padding: 5px 9px; font-size: 0.78rem; line-height: 1; white-space: nowrap; flex: 0 0 auto; }
   }
 }
