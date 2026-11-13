@@ -209,8 +209,10 @@
     table.appendChild(tbody);
 
     // スマホ用の拡大・縮小ボタン(まとめて見たいときは縮小、読みたいときは拡大)
-    const ZOOM_STEPS = [0.55, 0.65, 0.75, 0.85, 1, 1.2];
-    let zoomIndex = 4;
+    // 表示の倍率(%)。100% = 実際の 0.85 倍(最初の大きさ)。55% まで縮小できる
+    const ZOOM_PERCENTS = [55, 65, 75, 85, 100];
+    const ZOOM_BASE = 0.85;
+    let zoomIndex = ZOOM_PERCENTS.length - 1;
     const zoomBar = document.createElement("div");
     zoomBar.className = "entries-zoom";
     const zoomOut = document.createElement("button");
@@ -220,13 +222,13 @@
     const zoomIn = document.createElement("button");
     zoomIn.type = "button"; zoomIn.textContent = "＋"; zoomIn.setAttribute("aria-label", "拡大");
     function applyZoom() {
-      table.style.setProperty("--ez", String(ZOOM_STEPS[zoomIndex]));
-      zoomLabel.textContent = Math.round(ZOOM_STEPS[zoomIndex] * 100) + "%";
+      table.style.setProperty("--ez", String(ZOOM_PERCENTS[zoomIndex] / 100 * ZOOM_BASE));
+      zoomLabel.textContent = ZOOM_PERCENTS[zoomIndex] + "%";
       zoomOut.disabled = zoomIndex === 0;
-      zoomIn.disabled = zoomIndex === ZOOM_STEPS.length - 1;
+      zoomIn.disabled = zoomIndex === ZOOM_PERCENTS.length - 1;
     }
     zoomOut.addEventListener("click", () => { if (zoomIndex > 0) { zoomIndex--; applyZoom(); } });
-    zoomIn.addEventListener("click", () => { if (zoomIndex < ZOOM_STEPS.length - 1) { zoomIndex++; applyZoom(); } });
+    zoomIn.addEventListener("click", () => { if (zoomIndex < ZOOM_PERCENTS.length - 1) { zoomIndex++; applyZoom(); } });
     zoomBar.append(zoomOut, zoomLabel, zoomIn);
     applyZoom();
     root.appendChild(zoomBar);
