@@ -1061,4 +1061,13 @@ footer {
     width: 200px;
     margin: 0 auto;
   }
+
+  /* 次の試合の見出し: スマホで「次の試合」+最終更新+更新ボタンを1行にする */
+  @media (max-width: 600px) {
+    #next-match .next-match-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: nowrap; gap: 6px; }
+    #next-match .next-match-head h2 { font-size: 1.05rem; white-space: nowrap; margin: 0; }
+    #next-match .refresh-area { display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin: 0; }
+    #next-match .last-updated { font-size: 0.7rem; white-space: nowrap; }
+    #next-match .refresh-btn { padding: 4px 8px; font-size: 0.75rem; white-space: nowrap; gap: 3px; }
+  }
 }
