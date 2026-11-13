@@ -181,7 +181,7 @@
       if (showPilot) tr.appendChild(td("", it.pilot));
       if (showTeam) tr.appendChild(td("team", it.team));
       if (showCourt) tr.appendChild(td("narrow", it.court));
-      if (showMatch) tr.appendChild(td("narrow", it.matches.join(" / "))); // 2つあるときは「3 / 12」のように並べる
+      if (showMatch) tr.appendChild(td("narrow", it.matches.join(" | "))); // 2つあるときは「3 | 12」のように並べる
       if (showMsg) tr.appendChild(td("msg", it.msg));
       tbody.appendChild(tr);
     });
