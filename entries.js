@@ -49,6 +49,9 @@
       .entries-table{width:100%}
     }
     .entries-table.wide{width:max(100%,calc(${MOBILE_TABLE_WIDTH_PX + 60}px * var(--ez)))}
+    .entries-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px}
+    .entries-head h2{margin:0}
+    .entries-head .entries-zoom{margin:0}
     .entries-zoom{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin:0 0 6px;font-size:.8rem;color:#555}
     .entries-zoom button{min-width:38px;height:32px;padding:0 10px;border:1px solid #c9c0c3;border-radius:8px;background:#fff;color:#7b1e24;font:inherit;font-weight:bold;font-size:1rem;line-height:1;cursor:pointer}
     .entries-zoom button:disabled{opacity:.35;cursor:default}
@@ -209,10 +212,10 @@
     table.appendChild(tbody);
 
     // スマホ用の拡大・縮小ボタン(まとめて見たいときは縮小、読みたいときは拡大)
-    // 表示の倍率(%)。100% = 実際の 0.85 倍(最初の大きさ)。55% まで縮小できる
-    const ZOOM_PERCENTS = [55, 65, 75, 85, 100];
+    // 表示の倍率(%)。100% = 実際の 0.85 倍(最初の大きさ)。55% まで縮小、150% まで拡大できる
+    const ZOOM_PERCENTS = [55, 65, 75, 85, 100, 125, 150];
     const ZOOM_BASE = 0.85;
-    let zoomIndex = ZOOM_PERCENTS.length - 1;
+    let zoomIndex = ZOOM_PERCENTS.indexOf(100); // 最初は100%
     const zoomBar = document.createElement("div");
     zoomBar.className = "entries-zoom";
     const zoomOut = document.createElement("button");
@@ -231,7 +234,16 @@
     zoomIn.addEventListener("click", () => { if (zoomIndex < ZOOM_PERCENTS.length - 1) { zoomIndex++; applyZoom(); } });
     zoomBar.append(zoomOut, zoomLabel, zoomIn);
     applyZoom();
-    root.appendChild(zoomBar);
+    // 見出し「出場機体」と同じ行(同じ高さ)の右端にボタンを置く。見出しが見つからなければ表の上に置く
+    const heading = section.querySelector("h2");
+    if (heading && heading.parentNode === section) {
+      const headRow = document.createElement("div");
+      headRow.className = "entries-head";
+      heading.parentNode.insertBefore(headRow, heading);
+      headRow.append(heading, zoomBar);
+    } else {
+      root.appendChild(zoomBar);
+    }
 
     const frame = document.createElement("div");
     frame.className = "entries-frame";
