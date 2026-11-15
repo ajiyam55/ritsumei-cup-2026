@@ -562,6 +562,11 @@
       height: 50%;
     }
 
+    /* 隣が空き枠の試合は、次の回戦と同じ高さに置くので、2試合をつなぐ縦線は要らない */
+    .slot.is-lone::before {
+      display: none;
+    }
+
     /* 次の試合の左側に入る横線 */
     .round:not(:first-child) .match::before {
       content: "";
@@ -959,7 +964,7 @@
     </form>
   </div>
 
-  <script src="settings.js?v=20261111"></script>
+  <script src="settings.js?v=20261118"></script>
   <script>
     // 使うコート(大会設定のコート数で A・B だけ、または A・B・C になる。読み込み後に決まる)
     let BLOCKS = ["A", "B", "C"];
@@ -1136,8 +1141,21 @@
       const byeTeam = hasRed ? match.red : hasBlue ? match.blue : null;
       const byeKnown = Boolean(byeTeam && byeTeam.name && !byeTeam.pending);
 
-      const rowSpan = 2 ** (round + 1);
-      const rowStart = (matchIndex - 1) * rowSpan + 1;
+      let rowSpan = 2 ** (round + 1);
+      let rowStart = (matchIndex - 1) * rowSpan + 1;
+      // 隣の試合が空き枠(相手側がシード)のときは、この試合を次の回戦の高さ(真ん中)に置いて、空白を減らす
+      const sibling = getMatch(block, round, matchIndex % 2 === 1 ? matchIndex + 1 : matchIndex - 1);
+      const siblingEmpty = Boolean(sibling) && (
+        sibling.dead ||
+        (round === 0 && !(sibling.red && (sibling.red.name || sibling.red.number)) &&
+          !(sibling.blue && (sibling.blue.name || sibling.blue.number)))
+      );
+      const hasParent = round < Math.log2(tournamentData[block].bracketSize || DEFAULT_BRACKET_SIZE) - 1;
+      const isLone = siblingEmpty && hasParent;
+      if (isLone) {
+        rowSpan *= 2;
+        rowStart = Math.floor((matchIndex - 1) / 2) * rowSpan + 1;
+      }
       const advanced = Boolean(match.winner || (isBye && byeKnown));
       const feeders = round > 0 ? [
         getMatch(block, round - 1, matchIndex * 2 - 1),
@@ -1153,7 +1171,7 @@
 
       const slotClass = [
         "slot",
-        matchIndex % 2 === 1 ? "is-upper" : "is-lower",
+        isLone ? "is-lone" : (matchIndex % 2 === 1 ? "is-upper" : "is-lower"),
         advanced ? "is-advanced" : ""
       ].join(" ");
       const matchClass = [

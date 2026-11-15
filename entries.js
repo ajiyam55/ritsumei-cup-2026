@@ -8,7 +8,7 @@
 (function () {
   // ===== 設定 =====
   const CSV_PATH = "documents/entries.csv"; // CSVの場所(index.htmlからの相対パス。変わったらここだけ直す)
-  const MOBILE_TABLE_WIDTH_PX = 560;        // スマホでの表の幅(枠より広いと横スクロール)
+  const MOBILE_TABLE_WIDTH_PX = 640;        // スマホでの表の幅(枠より広いと横スクロール)
   const FRAME_MAX_HEIGHT = "75vh";          // 枠の高さ
   // =================
 
@@ -39,6 +39,7 @@
     .entries-table td.num{font-weight:bold;white-space:nowrap;text-align:center}
     .entries-table .kana{display:block;font-size:.72rem;color:#777176}
     .entries-table .robot{font-weight:bold}
+    .entries-table .robotcol{min-width:calc(13em * var(--ez))}
     .entries-table td.msg{white-space:pre-wrap}
     @media (max-width:767px){
       .entries-table td.team{white-space:nowrap;overflow-wrap:normal}
@@ -179,6 +180,7 @@
     heads.forEach((t) => {
       const th = document.createElement("th");
       if (t === "コート" || t === "ブロック" || t === "機体番号" || t === "試合番号") th.className = "narrow";
+      if (t === "機体名") th.className = "robotcol";
       th.textContent = t;
       hr.appendChild(th);
     });
@@ -193,6 +195,7 @@
       if (showBlock) tr.appendChild(td("narrow blk", it.blockShown));
       if (showNum) tr.appendChild(td("num narrow", it.num));
       const robotCell = document.createElement("td");
+      robotCell.className = "robotcol";
       if (showKana && it.kana) {
         const k = document.createElement("span");
         k.className = "kana";
