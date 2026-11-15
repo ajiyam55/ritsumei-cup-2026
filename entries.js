@@ -44,6 +44,8 @@
       .entries-table td.team{white-space:nowrap;overflow-wrap:normal}
     }
     .entries-table .match-sep{display:inline-block;margin:0 .5em;color:#a89fa3}
+    .entries-table tbody tr.grp-start:not(:first-child) td{border-top:2px solid #b8aab0}
+    .entries-table td.blk{border-right:1px solid #d4cdd0}
     .entries-table .narrow{width:1%;white-space:nowrap;text-align:center}
     @media (min-width:768px){
       .entries-frame{overflow-x:hidden}
@@ -150,10 +152,13 @@
     const has = (key) => items.some((it) => it[key] !== "");
     const showKana = has("kana"), showPilot = has("pilot"), showTeam = has("team"), showMsg = false, showNum = has("num"); // 意気込みは表示しない
     const showCourt = has("court"), showBlock = has("block");
-    // コートは、コートかブロックが変わった行にだけ出す(同じブロックの2行目・3行目は空白。ブロックの数字は毎行出す)
+    // コートとブロックは、どちらかが変わった行にだけ出す(同じブロックの2行目・3行目は空白)
     let prevCourt = null, prevBlock = null;
     items.forEach((it) => {
-      it.courtShown = it.court === prevCourt && it.block === prevBlock ? "" : it.court;
+      const same = it.court === prevCourt && it.block === prevBlock;
+      it.courtShown = same ? "" : it.court;
+      it.blockShown = it.block;
+      it.groupStart = !same;
       prevCourt = it.court; prevBlock = it.block;
     });
     const showMatch = items.some((it) => it.matches.length > 0);
@@ -173,7 +178,7 @@
     if (showMsg) heads.push("意気込み");
     heads.forEach((t) => {
       const th = document.createElement("th");
-      if (t === "コート" || t === "ブロック" || t === "試合番号") th.className = "narrow";
+      if (t === "コート" || t === "ブロック" || t === "機体番号" || t === "試合番号") th.className = "narrow";
       th.textContent = t;
       hr.appendChild(th);
     });
@@ -183,9 +188,10 @@
     const tbody = document.createElement("tbody");
     items.forEach((it) => {
       const tr = document.createElement("tr");
+      if (it.groupStart) tr.className = "grp-start";
       if (showCourt) tr.appendChild(td("narrow", it.courtShown));
-      if (showBlock) tr.appendChild(td("narrow", it.block));
-      if (showNum) tr.appendChild(td("num", it.num));
+      if (showBlock) tr.appendChild(td("narrow blk", it.blockShown));
+      if (showNum) tr.appendChild(td("num narrow", it.num));
       const robotCell = document.createElement("td");
       if (showKana && it.kana) {
         const k = document.createElement("span");
