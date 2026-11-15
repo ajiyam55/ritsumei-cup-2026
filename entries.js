@@ -1,6 +1,6 @@
 // 出場機体一覧: CSVファイル1つを読み込んで、index.html の <div id="entry-list"> に表で表示する。
 // CSVは同じサイト内の静的ファイルを読むだけなので、Apps Script(API)は使わない。
-// 列(あるものだけ表示): 機体番号, 機体名, フリガナ, 操縦者名, 所属, コート名, 試合番号(見出しが「試合」で始まる列・「2戦目」「2試合目」のような列・そのすぐ右の見出しが空の列は、1つの欄に並べて表示)。意気込みは表示しない
+// 列(あるものだけ表示): コート, ブロック, 機体番号, 機体名, フリガナ, 操縦者名, 所属, 試合番号(見出しが「試合」で始まる列・「2戦目」「2試合目」のような列・そのすぐ右の見出しが空の列は、1つの欄に並べて表示)。意気込みは表示しない
 //   ・1行目が見出し(上の名前)なら、列の順番が違っても自動で合わせる
 //   ・見出しが無ければ、上の順番どおりとして読む
 //   ・文字コードはUTF-8でもExcel標準のShift_JISでも自動判定。"..." で囲んだ項目内のカンマ・改行もOK
@@ -19,7 +19,8 @@
     { key: "pilot", label: "操縦者名", names: ["操縦者名", "操縦者", "操縦者氏名", "名前", "氏名"] },
     { key: "team", label: "所属団体", names: ["所属団体", "所属", "団体", "チーム"] },
     { key: "msg", label: "意気込み", names: ["意気込み", "コメント", "一言"] },
-    { key: "court", label: "コート", names: ["コート名", "コート", "出場コート", "ブロック"] },
+    { key: "court", label: "コート", names: ["コート名", "コート", "出場コート"] },
+    { key: "block", label: "ブロック", names: ["ブロック", "ブロック番号", "リーグ"] },
     { key: "match", label: "試合番号", names: ["試合番号", "試合", "第一試合", "初戦"] } // 「試合」で始まる列は全部使う
   ];
 
@@ -134,7 +135,7 @@
     const items = body.map((r) => ({
       num: get(r, "num"), robot: get(r, "robot"), kana: get(r, "kana"),
       pilot: get(r, "pilot"), team: get(r, "team"), msg: get(r, "msg"),
-      court: get(r, "court"), match: get(r, "match"),
+      court: get(r, "court"), block: get(r, "block"), match: get(r, "match"),
       matches: matchCols.map((i) => (r[i] || "").trim()).filter((v) => v !== "")
     })).filter((it) => it.num || it.robot || it.pilot);
     if (items.length === 0) return;
@@ -148,24 +149,31 @@
     // CSVに入っている列だけ表示する(例: フリガナ・操縦者・意気込みが空なら列ごと出さない)
     const has = (key) => items.some((it) => it[key] !== "");
     const showKana = has("kana"), showPilot = has("pilot"), showTeam = has("team"), showMsg = false, showNum = has("num"); // 意気込みは表示しない
-    const showCourt = has("court");
+    const showCourt = has("court"), showBlock = has("block");
+    // コートは、コートかブロックが変わった行にだけ出す(同じブロックの2行目・3行目は空白。ブロックの数字は毎行出す)
+    let prevCourt = null, prevBlock = null;
+    items.forEach((it) => {
+      it.courtShown = it.court === prevCourt && it.block === prevBlock ? "" : it.court;
+      prevCourt = it.court; prevBlock = it.block;
+    });
     const showMatch = items.some((it) => it.matches.length > 0);
 
     const table = document.createElement("table");
-    table.className = "entries-table" + (showCourt || showMatch ? " wide" : "");
+    table.className = "entries-table" + (showCourt || showBlock || showMatch ? " wide" : "");
     const thead = document.createElement("thead");
     const hr = document.createElement("tr");
     const heads = [];
+    if (showCourt) heads.push("コート");
+    if (showBlock) heads.push("ブロック");
     if (showNum) heads.push("機体番号");
     heads.push("機体名");
     if (showPilot) heads.push("操縦者名");
     if (showTeam) heads.push("所属");
-    if (showCourt) heads.push("コート");
     if (showMatch) heads.push("試合番号");
     if (showMsg) heads.push("意気込み");
     heads.forEach((t) => {
       const th = document.createElement("th");
-      if (t === "コート" || t === "試合番号") th.className = "narrow";
+      if (t === "コート" || t === "ブロック" || t === "試合番号") th.className = "narrow";
       th.textContent = t;
       hr.appendChild(th);
     });
@@ -175,6 +183,8 @@
     const tbody = document.createElement("tbody");
     items.forEach((it) => {
       const tr = document.createElement("tr");
+      if (showCourt) tr.appendChild(td("narrow", it.courtShown));
+      if (showBlock) tr.appendChild(td("narrow", it.block));
       if (showNum) tr.appendChild(td("num", it.num));
       const robotCell = document.createElement("td");
       if (showKana && it.kana) {
@@ -190,7 +200,6 @@
       tr.appendChild(robotCell);
       if (showPilot) tr.appendChild(td("", it.pilot));
       if (showTeam) tr.appendChild(td("team", it.team));
-      if (showCourt) tr.appendChild(td("narrow", it.court));
       if (showMatch) {
         // 2つあるときは「3 ｜ 12」のように、区切りの左右に余白をあけて並べる
         const matchTd = document.createElement("td");
