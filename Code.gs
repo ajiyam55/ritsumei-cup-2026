@@ -3,8 +3,9 @@ const LEAGUE_SHEETS = {
   B: "Bリーグ",
   C: "Cリーグ"
 };
-const MAX_PARTICIPANTS = 32;
-const BRACKET_SIZE = 32;
+// 出場できる人数と枠数の上限。枠128 = 7回戦(1〜5回戦・準々決勝・準決勝)まで。普段は大きくしても動作は変わらない
+const MAX_PARTICIPANTS = 128;
+const BRACKET_SIZE = 128;
 const REPRESENTATIVE_RESULT_COLUMN = 5; // F列(「残り0試合」など)
 const REPRESENTATIVE_NAME_COLUMN = 6;   // G列(代表の名前)
 const REPRESENTATIVE_LABEL_COLUMN = 4;  // E列(「第Nブロック代表」の表記)。この列だけを見て判定する
@@ -19,6 +20,27 @@ const IGNORED_BLOCK_IDS = { 14: true };
 // リーグ表の上から「その数ぶんだけ」ブロックを読み取る(ブロック14のような余りの行は
 // 自動的に無視される)。
 const BLOCK_COUNT_SOURCE_SHEET = "機体一覧";
+// 1ブロック(総当たり)の試合数。3人の総当たり = 3試合。ブロック数 = 試合数 ÷ この値。
+const MATCHES_PER_BLOCK = 3;
+// 1機体が出る試合の数の上限。「機体一覧」の試合番号の列(試合番号・2戦目・3戦目…)を
+// 左から最大この数だけ読む。使っていない列(空白)は無視されるので、今は2戦目までで問題ない。
+const MAX_MATCHES_PER_ROBOT = 5;
+// 今まで通り固定で読む試合番号の列(E列・F列 = 0始まりで4と5)。見出しで見つかった列は、これに足される。
+const LEGACY_MATCH_COLUMNS = [4, 5];
+
+// 出場者の取得元。このシートがあって、リーグ(A/B/C)の列が見つかればこちらを使い、
+// 無ければ従来どおり「Aリーグ」などのシートから代表を読む。
+//   1行目: 見出し(A / B / C をそれぞれの名前の列に書く。右隣の列は「全42試合」のようにそのコートの
+//          試合数を書く。ブロック数 = 試合数 ÷ 3 で、それより後ろの枠は使わない。書かなければ全部使う)
+//   2行目以降の右隣の列: 「残り3試合」などの備考
+//   A列   : 枠の番号(1,2,3…)。空欄や数字でなければ上から順に番号を振る
+//   名前の列: 出場者の名前。「第3ブロック代表」のような名前や「未定」は代表未定の枠、
+//            空欄・「-」・#N/A などは枠なしとして扱う
+// ブロックを使わず、トーナメントだけやるときは、ここに名前を並べるだけでよい。
+const ENTRANT_SHEET_NAME = "トーナメント出場者";
+// true のとき、「機体一覧」にブロック数(試合数)があれば、それより後ろの枠は使わない(今年の余り行の対策)。
+// ブロックなしで使う年は false にする。
+const LIMIT_ENTRANTS_BY_BLOCK_COUNT = true;
 const BLOCK_COUNT_SOURCE_CELLS = { A: "G2", B: "H2", C: "I2" };
 const SCORE_SHEET_NAME = "FinalTournament";
 // トーナメントの並び(誰がどの枠か)を手で入れ替えたときの保存先。PropertiesServiceに保存するので、
@@ -242,19 +264,27 @@ function getBlockCountFromSource(spreadsheet, league) {
   const matchCount = Number(sourceSheet.getRange(cellRef).getValue());
   if (!Number.isFinite(matchCount) || matchCount <= 0) return null;
 
-  return Math.floor(matchCount / 3);
+  return Math.floor(matchCount / MATCHES_PER_BLOCK);
 }
 
 function buildTournamentPayload(spreadsheet, league) {
   const sheet = spreadsheet.getSheetByName(LEAGUE_SHEETS[league]);
-  if (!sheet) {
+  const entrantSheetReady = Boolean(spreadsheet.getSheetByName(ENTRANT_SHEET_NAME));
+  if (!sheet && !entrantSheetReady) {
     return { error: `Sheet not found for league: ${league}` };
   }
 
   // 1. リーグシートから組み合わせ(1回戦)を作る
   // ブロック数は「機体一覧」の自動集計セルを優先。取れなければ従来通りシートから判定する。
   const blockCountOverride = getBlockCountFromSource(spreadsheet, league);
-  const result = parseLeagueSheet(sheet, blockCountOverride, getBracketLayout(league));
+  // 「トーナメント出場者」シートがあればそこから、無ければ従来のリーグシートから出場者を読む
+  const source = readEntrantSheet(
+    spreadsheet, league, LIMIT_ENTRANTS_BY_BLOCK_COUNT ? blockCountOverride : null
+  ) || readLeagueSheet(sheet, blockCountOverride);
+  if (!source) {
+    return { error: `出場者を読めませんでした(「${ENTRANT_SHEET_NAME}」に ${league} の列が無く、${LEAGUE_SHEETS[league]}シートも無い)` };
+  }
+  const result = buildBracketResult(source, getBracketLayout(league));
 
   // 2. FinalTournament シートから「このリーグの」スコアだけ読む
   const scoreSheet = spreadsheet.getSheetByName(SCORE_SHEET_NAME);
@@ -441,12 +471,17 @@ function getCurrentMatchData() {
       : { num: "", name: "未設定" };
   }
 
+  // 試合番号の列: 従来のE・F列に、見出しが「試合…」「N戦目」「N試合目」の列を足して、左から最大5つ
+  const matchColumns = findMatchColumns(values[0] || []);
+
   function findMatch(ring, matchNumber) {
     const found = rows.filter(row => {
       const rowRing = String(row[3]).trim();
-      const m1 = row[4];
-      const m2 = row[5];
-      return rowRing === ring && (m1 === matchNumber || m2 === matchNumber);
+      if (rowRing !== ring) return false;
+      return matchColumns.some(column => {
+        const cell = String(row[column] === undefined ? "" : row[column]).trim();
+        return cell !== "" && Number(cell) === matchNumber;
+      });
     });
 
     found.sort((left, right) => left[0] - right[0]);
@@ -454,8 +489,10 @@ function getCurrentMatchData() {
   }
 
   function trioMatchNumbers(trioIndex) {
-    const base = (trioIndex - 1) * 3;
-    return [base + 1, base + 2, base + 3];
+    const base = (trioIndex - 1) * MATCHES_PER_BLOCK;
+    const numbers = [];
+    for (let i = 1; i <= MATCHES_PER_BLOCK; i += 1) numbers.push(base + i);
+    return numbers;
   }
 
   function buildCourt(ring, current) {
@@ -470,7 +507,7 @@ function getCurrentMatchData() {
     }
 
     const cur = Number(current);
-    const trioIndex = Math.ceil(cur / 3);
+    const trioIndex = Math.ceil(cur / MATCHES_PER_BLOCK);
     const currentNumbers = trioMatchNumbers(trioIndex);
     const nextNumbers = trioMatchNumbers(trioIndex + 1);
     const matches = currentNumbers.map(number => {
@@ -546,6 +583,19 @@ function getCurrentMatchData() {
   } catch (ignore) { /* キャッシュできなくても動く */ }
 
   return jsonOutput(payload);
+}
+
+// 「機体一覧」の見出し行から、試合番号の列の位置を返す(0始まり、左から最大 MAX_MATCHES_PER_ROBOT 個)。
+// 従来のE・F列は見出しに関係なく必ず読む。3戦目以降は見出しが「3戦目」「3試合目」などの列を読む。
+function findMatchColumns(headerRow) {
+  const columns = LEGACY_MATCH_COLUMNS.slice();
+  headerRow.forEach((header, index) => {
+    const text = normalizeText(header);
+    if (/^試合番号/.test(text) || /^\d+(戦目|試合目)$/.test(text)) {
+      if (columns.indexOf(index) === -1) columns.push(index);
+    }
+  });
+  return columns.sort((left, right) => left - right).slice(0, MAX_MATCHES_PER_ROBOT);
 }
 
 // 機体一覧シートの値(名前・番号)だけを伏せ字にする。第Nブロック・試合番号などの
@@ -855,7 +905,9 @@ function rowToObject(headers, row) {
 // リーグシートの解析
 // ---------------------------------------------------------------
 
-function parseLeagueSheet(sheet, blockCountOverride, layout) {
+// 従来の取得元: 「Aリーグ」などのシートから、ブロックごとの代表を読む
+function readLeagueSheet(sheet, blockCountOverride) {
+  if (!sheet) return null;
   const values = sheet.getDataRange().getDisplayValues();
   const blocks = [];
 
@@ -926,15 +978,6 @@ function parseLeagueSheet(sheet, blockCountOverride, layout) {
     }
   }
 
-  const limited = entrants.slice(0, MAX_PARTICIPANTS);
-  const bracketSize = nextBracketSize(limited.length);
-
-  // 枠の並び: 標準の並び(初期)か、手で入れ替えて保存した並び(合っているときだけ使う)
-  const defaultSlots = seedEntrants(limited, bracketSize);
-  const customSlots = applyBracketLayout(defaultSlots, bracketSize, layout);
-  const slots = customSlots || defaultSlots;
-  const seedOf = slot => (slot ? slot.seed : null);
-
   return {
     sourceSheet: sheet.getName(),
     // 確認用: どのブロックから代表が取れているか
@@ -946,6 +989,29 @@ function parseLeagueSheet(sheet, blockCountOverride, layout) {
     })),
     blockCount,
     pendingBlocks,
+    entrants
+  };
+}
+
+// 取得元(どちらでも同じ形)から、トーナメントの形(枠・1回戦の組み合わせ)を作る
+//   source = { sourceSheet, blocks, blockCount, pendingBlocks, entrants }
+function buildBracketResult(source, layout) {
+  const entrants = source.entrants;
+  const pendingBlocks = source.pendingBlocks;
+  const limited = entrants.slice(0, MAX_PARTICIPANTS);
+  const bracketSize = nextBracketSize(limited.length);
+
+  // 枠の並び: 標準の並び(初期)か、手で入れ替えて保存した並び(合っているときだけ使う)
+  const defaultSlots = seedEntrants(limited, bracketSize);
+  const customSlots = applyBracketLayout(defaultSlots, bracketSize, layout);
+  const slots = customSlots || defaultSlots;
+  const seedOf = slot => (slot ? slot.seed : null);
+
+  return {
+    sourceSheet: source.sourceSheet,
+    blocks: source.blocks,
+    blockCount: source.blockCount,
+    pendingBlocks,
     entryCount: limited.length - pendingBlocks.length,
     bracketSize,
     // 1回戦の組み合わせ。スコア反映・勝ち上がりは buildTournamentPayload で行う
@@ -953,9 +1019,116 @@ function parseLeagueSheet(sheet, blockCountOverride, layout) {
     layout: slots.map(seedOf),               // 今の並び(枠の順に、ブロック番号。空き枠はnull)
     defaultLayout: defaultSlots.map(seedOf), // 標準の並び
     layoutApplied: Boolean(customSlots),     // 手で入れ替えた並びを使っているか
-    layoutStale: Boolean(layout) && !customSlots, // 保存済みの並びが今のブロック数と合わず、使えなかった
+    layoutStale: Boolean(layout) && !customSlots, // 保存済みの並びが今の人数と合わず、使えなかった
     qualifier: null
   };
+}
+
+// 新しい取得元: 「トーナメント出場者」シート。シートが無い・そのリーグの列が無い・
+// 出場者が1人もいないときは null を返し、従来のリーグシートに任せる。
+function readEntrantSheet(spreadsheet, league, limit) {
+  const sheet = spreadsheet.getSheetByName(ENTRANT_SHEET_NAME);
+  if (!sheet) return null;
+
+  const values = sheet.getDataRange().getDisplayValues();
+
+  // 見出し(上から5行以内)から、このリーグの列を探す。「A」「Aリーグ」どちらでもよい
+  let headerRow = -1;
+  let column = -1;
+  for (let r = 0; r < Math.min(values.length, 5) && column < 0; r += 1) {
+    for (let c = 0; c < values[r].length; c += 1) {
+      const text = normalizeText(values[r][c]).toUpperCase().replace(/リーグ$/, "");
+      if (text === league) { headerRow = r; column = c; break; }
+    }
+  }
+  if (column < 0) return null;
+
+  // 見出しの右隣に「全42試合」とあれば、ブロック数 = 試合数 ÷ MATCHES_PER_BLOCK(42 → 14ブロック)として、
+  // それより後ろの枠は使わない。書いていなければ、引数で渡された値(機体一覧のブロック数)を使う。
+  const countMatch = normalizeText(values[headerRow][column + 1]).match(/^全(\d+)試合$/);
+  if (countMatch && Number(countMatch[1]) > 0) {
+    limit = Math.floor(Number(countMatch[1]) / MATCHES_PER_BLOCK);
+  }
+
+  const numberByName = robotNumbersByName(spreadsheet);
+  const rows = [];
+  for (let r = headerRow + 1; r < values.length; r += 1) {
+    const name = String(values[r][column] || "").trim();
+    if (isEmptyEntrantCell(name)) continue;
+    // 備考の列が #N/A などのエラーの行は、その枠が使われていないという意味(例: ブロック数の少ないコートの余り行)
+    const statusText = String(values[r][column + 1] || "").trim();
+    if (/^#/.test(statusText) && isEmptyEntrantCell(statusText)) continue;
+    const seedText = column > 0 ? normalizeText(values[r][0]) : "";
+    rows.push({
+      seed: /^\d+$/.test(seedText) ? Number(seedText) : null,
+      name,
+      status: String(values[r][column + 1] || "").trim()
+    });
+  }
+  if (!rows.length) return null;
+
+  // 枠の番号が全部そろっていて重複もないときだけ、A列の番号を使う。そうでなければ上から順に振る
+  const seeds = rows.map(row => row.seed);
+  const seedsUsable = seeds.every(seed => seed !== null && seed > 0) &&
+    new Set(seeds).size === seeds.length;
+  rows.forEach((row, index) => { row.seed = seedsUsable ? row.seed : index + 1; });
+
+  const kept = limit ? rows.filter(row => row.seed <= limit) : rows;
+  kept.sort((left, right) => left.seed - right.seed);
+
+  const entrants = [];
+  const pendingBlocks = [];
+  const blocks = [];
+
+  kept.forEach(row => {
+    const pendingLabel = pendingLabelFor(row.name);
+    if (pendingLabel) {
+      pendingBlocks.push(row.seed);
+      entrants.push({ number: "", seed: row.seed, name: pendingLabel, wins: "", pending: true });
+      blocks.push({ id: row.seed, name: `第${row.seed}ブロック`, representative: "", confirmed: false });
+    } else {
+      entrants.push({ number: numberByName[row.name] || "", seed: row.seed, name: row.name, wins: "" });
+      blocks.push({ id: row.seed, name: `第${row.seed}ブロック`, representative: row.name, confirmed: isConfirmed(row.status) });
+    }
+  });
+  if (!entrants.length) return null;
+
+  return {
+    sourceSheet: ENTRANT_SHEET_NAME,
+    blocks,
+    blockCount: entrants.length,
+    pendingBlocks,
+    entrants
+  };
+}
+
+// 空欄・「-」・#N/A などのエラー表示は「枠なし」
+function isEmptyEntrantCell(name) {
+  if (!name) return true;
+  if (/^[-ー−―—–]+$/.test(name)) return true;
+  return /^#(N\/A|REF!|VALUE!|NAME\?|DIV\/0!|NUM!|NULL!|ERROR!)/i.test(name);
+}
+
+// 「第3ブロック代表」「未定」などは、代表が決まっていない枠。表示用の名前を返す(決まっていれば空文字)
+function pendingLabelFor(name) {
+  const text = normalizeText(name);
+  const block = text.match(/^第(\d+)ブロック代表(\(未定\))?$/);
+  if (block) return `第${block[1]}ブロック代表(未定)`;
+  if (text === "未定" || text.toUpperCase() === "TBD") return "未定";
+  return "";
+}
+
+// 「機体一覧」から、名前 → 機体番号 の対応表を作る(出場者シートには名前しか無いため)
+function robotNumbersByName(spreadsheet) {
+  const map = {};
+  const sheet = spreadsheet.getSheetByName(BLOCK_COUNT_SOURCE_SHEET);
+  if (!sheet) return map;
+  sheet.getDataRange().getDisplayValues().slice(1).forEach(row => {
+    const number = String(row[0] || "").trim();
+    const name = String(row[1] || "").trim();
+    if (name && /^\d+$/.test(number) && !map[name]) map[name] = number;
+  });
+  return map;
 }
 
 function representativeFromRow(row, blockNumber) {

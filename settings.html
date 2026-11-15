@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>大会設定 - 立命杯2026</title>
-  <script src="settings.js?v=20261111"></script>
+  <script src="settings.js?v=20261118"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -200,7 +200,7 @@
       <div class="field">
         <span class="label">何本先取か</span>
         <div class="wins-grid" id="wins-grid"></div>
-        <span class="hint">回戦ごとに決めます(何試合目、のような細かい指定はできません)。コート内のリーグ数が多いと「3回戦」が出ます。今の人数で存在しない回戦は「なし」と表示されます。「最終戦」は最終決戦・決勝・3位決定戦です。</span>
+        <span class="hint">回戦ごとに決めます(何試合目、のような細かい指定はできません)。コート内のリーグ数が多いと「3回戦」「4回戦」「5回戦」が出ます。今の人数で存在しない回戦は「なし」と表示されます。「最終戦」は最終決戦・決勝・3位決定戦です。</span>
       </div>
     </div>
 
@@ -251,6 +251,8 @@
       { key: "1回戦", sub: "" },
       { key: "2回戦", sub: "" },
       { key: "3回戦", sub: "" },
+      { key: "4回戦", sub: "" },
+      { key: "5回戦", sub: "" },
       { key: "準々決勝", sub: "" },
       { key: "準決勝", sub: "" },
       { key: "最終戦", sub: "最終決戦・決勝・3位決定戦" }

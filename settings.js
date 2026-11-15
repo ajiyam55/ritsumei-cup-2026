@@ -5,14 +5,14 @@
 (function () {
   var SETTINGS_PATH = "documents/settings.txt"; // 設定ファイルの場所(変わったらここだけ直す)
 
-  var ROUND_KEYS = ["1回戦", "2回戦", "3回戦", "準々決勝", "準決勝", "最終戦"];
+  var ROUND_KEYS = ["1回戦", "2回戦", "3回戦", "4回戦", "5回戦", "準々決勝", "準決勝", "最終戦"];
   var DEFAULTS = {
     eventDate: "2026-12-05", // 開催日(YYYY-MM-DD)
     courts: 3,               // コート数(2 または 3)
     entryOpen: false,        // 応募セクションを出すか(true / false)
     apiUrl: "",              // API(Apps Script のウェブアプリURL。次の試合・呼び出し・トーナメント表など全部これ1つ)
     entryFormUrl: "",        // 応募フォーム(Googleフォーム)のURL
-    wins: { "1回戦": 1, "2回戦": 2, "3回戦": 2, "準々決勝": 2, "準決勝": 2, "最終戦": 2 }
+    wins: { "1回戦": 1, "2回戦": 2, "3回戦": 2, "4回戦": 2, "5回戦": 2, "準々決勝": 2, "準決勝": 2, "最終戦": 2 }
   };
   var FALLBACK_WINS = 2; // 設定に無い回戦は、この本数先取
 
@@ -33,7 +33,7 @@
     if (raw.wins && typeof raw.wins === "object") {
       ROUND_KEYS.forEach(function (key) {
         var wins = Number(raw.wins[key]);
-        if (Number.isInteger(wins) && wins >= 1 && wins <= 9) out.wins[key] = wins;
+        if (Number.isInteger(wins) && wins >= 0 && wins <= 9 /* 0 = その回戦は使わない(なし) */) out.wins[key] = wins;
       });
     }
     return out;
