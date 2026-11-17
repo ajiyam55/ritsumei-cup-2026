@@ -39,7 +39,7 @@
     .entries-table td.num{font-weight:bold;white-space:nowrap;text-align:center}
     .entries-table .kana{display:block;font-size:.72rem;color:#777176}
     .entries-table .robot{font-weight:bold}
-    .entries-table .robotcol{min-width:calc(13em * var(--ez))}
+    .entries-table .robotcol{min-width:18em}
     .entries-table td.msg{white-space:pre-wrap}
     @media (max-width:767px){
       .entries-table td.team{white-space:nowrap;overflow-wrap:normal}
