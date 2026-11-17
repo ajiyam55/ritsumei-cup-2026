@@ -322,7 +322,6 @@ header.nav-open .menu-toggle {
 .card {
   position: relative;
   background: var(--card-bg);
-  backdrop-filter: blur(5px);
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
   margin: 24px auto;
@@ -887,7 +886,8 @@ footer {
   align-items: flex-start;
   padding-top: 20vh;
   overflow: hidden;
-  animation: fadeOut 0.4s ease-in-out 0.9s forwards;
+  /* フェードアウトのあと、大きさを0にして完全に片付ける(出しっぱなしだと、スクロールのたびに全画面の重なりを描き直して重くなる) */
+  animation: fadeOut 0.4s ease-in-out 0.9s forwards, collapseOverlay 0s linear 1.3s forwards;
   pointer-events: none;
 }
 
@@ -912,7 +912,7 @@ footer {
   );
   transform: translateY(-50%) rotate(22deg);
   opacity: 0;
-  animation: lineFlow 2.6s ease-in-out infinite;
+  animation: lineFlow 2.6s ease-in-out 1;
 }
 
 .opening-lines span:nth-child(1) { left: -10%; width: 2px;  animation-delay: 0s;    }
@@ -976,6 +976,10 @@ footer {
     opacity: 0;
     visibility: hidden;
   }
+}
+
+@keyframes collapseOverlay {
+  to { width: 0; height: 0; padding: 0; }
 }
 
 @keyframes lineFlow {

@@ -4,11 +4,12 @@ document.addEventListener("DOMContentLoaded", () => {
   // --- 固定ヘッダーの実際の高さを測ってCSS変数に反映する ---
   // （画像読み込み・フォント・画面幅・メニュー開閉で高さが変わっても、常にズレなく本文を下げる）
   if (header) {
+    let lastHeaderHeight = -1;
     const syncHeaderHeight = () => {
-      document.documentElement.style.setProperty(
-        "--header-h",
-        `${header.offsetHeight}px`
-      );
+      const height = header.offsetHeight;
+      if (height === lastHeaderHeight) return; // 変わっていなければ何もしない(無駄な再計算を避ける)
+      lastHeaderHeight = height;
+      document.documentElement.style.setProperty("--header-h", `${height}px`);
     };
 
     syncHeaderHeight();
