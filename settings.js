@@ -2,6 +2,9 @@
 // documents/settings.txt(静的ファイル)を読むだけで、Apps Script(API)は使いません。
 // ファイルが無い・壊れているときは、下の DEFAULTS(初期値)で動きます。
 // 設定の作り方は管理者ページの「大会設定」タブを見てください。
+// ※ 応募の表示/非表示は、サイト公開後に切り替えたいので、このファイルではなくAPI(管理者ページの
+//    「大会設定」→「公開・表示の管理」)に保存されています。data-show-if="entryOpen" の要素は、
+//    下の loadFlags() がAPIから読んで出し入れします(読めないときは隠したままです)。
 (function () {
   var SETTINGS_PATH = "documents/settings.txt"; // 設定ファイルの場所(変わったらここだけ直す)
 
@@ -9,7 +12,6 @@
   var DEFAULTS = {
     eventDate: "2026-12-05", // 開催日(YYYY-MM-DD)
     courts: 3,               // コート数(2 または 3)
-    entryOpen: false,        // 応募セクションを出すか(true / false)
     apiUrl: "",              // API(Apps Script のウェブアプリURL。次の試合・呼び出し・トーナメント表など全部これ1つ)
     entryFormUrl: "",        // 応募フォーム(Googleフォーム)のURL
     wins: { "1回戦": 1, "2回戦": 2, "3回戦": 2, "4回戦": 2, "5回戦": 2, "準々決勝": 2, "準決勝": 2, "最終戦": 2 }
@@ -25,7 +27,6 @@
     if (typeof raw.eventDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw.eventDate)) {
       out.eventDate = raw.eventDate;
     }
-    if (typeof raw.entryOpen === "boolean") out.entryOpen = raw.entryOpen;
     if (typeof raw.apiUrl === "string" && /^https:\/\/script\.google\.com\/\S+$/.test(raw.apiUrl.trim())) out.apiUrl = raw.apiUrl.trim();
     if (typeof raw.entryFormUrl === "string" && /^https?:\/\/\S+$/.test(raw.entryFormUrl.trim())) out.entryFormUrl = raw.entryFormUrl.trim();
     var courts = Number(raw.courts);
@@ -69,12 +70,6 @@
         if (yearPattern.test(alt)) imgs[k].setAttribute("alt", alt.replace(yearPattern, "$1" + yearText));
       }
     }
-    // data-show-if="entryOpen" の付いた要素は、設定が true のときだけ出す(HTMLには display:none を付けておく)
-    var shows = document.querySelectorAll("[data-show-if]");
-    for (var j = 0; j < shows.length; j++) {
-      var flag = shows[j].getAttribute("data-show-if");
-      shows[j].style.display = settings[flag] === true ? "" : "none";
-    }
     // data-href-setting="entryFormUrl" の付いたリンクは、設定のURLに差し替える
     var links = document.querySelectorAll("[data-href-setting]");
     for (var h = 0; h < links.length; h++) {
@@ -91,6 +86,23 @@
       else if (key === "edition") text = formatDate(settings.eventDate, "edition");
       if (text) nodes[i].textContent = text;
     }
+  }
+
+  // data-show-if="entryOpen" の付いた要素(HTMLには display:none を付けておく)を、APIの値に合わせて出し入れする。
+  // そういう要素があるページだけ、軽いAPI(mode=flags。シートは読まない)を1回呼ぶ。
+  function loadFlags(settings) {
+    var shows = document.querySelectorAll("[data-show-if]");
+    if (!shows.length || !settings.apiUrl) return;
+    var url = settings.apiUrl + (settings.apiUrl.indexOf("?") >= 0 ? "&" : "?") + "mode=flags";
+    window.RRST_FLAGS_READY = fetch(url)
+      .then(function (res) { return res.json(); })
+      .then(function (flags) {
+        window.RRST_FLAGS = flags || {};
+        for (var j = 0; j < shows.length; j++) {
+          shows[j].style.display = flags && flags[shows[j].getAttribute("data-show-if")] === true ? "" : "none";
+        }
+      })
+      .catch(function (err) { console.warn("公開設定(flags)を読めなかったので、応募は隠したままです:", err); });
   }
 
   window.RRST_DEFAULT_SETTINGS = clone(DEFAULTS);
@@ -115,10 +127,11 @@
       console.warn("settings.txt を読めなかったので初期値で動きます:", err);
     })
     .then(function () {
+      var run = function () { applyToPage(window.RRST_SETTINGS); loadFlags(window.RRST_SETTINGS); };
       if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", function () { applyToPage(window.RRST_SETTINGS); });
+        document.addEventListener("DOMContentLoaded", run);
       } else {
-        applyToPage(window.RRST_SETTINGS);
+        run();
       }
       return window.RRST_SETTINGS;
     });

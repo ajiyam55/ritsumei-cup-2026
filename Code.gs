@@ -30,8 +30,9 @@ const LEGACY_MATCH_COLUMNS = [4, 5];
 
 // 出場者の取得元。このシートがあって、リーグ(A/B/C)の列が見つかればこちらを使い、
 // 無ければ従来どおり「Aリーグ」などのシートから代表を読む。
-//   1行目: 見出し(A / B / C をそれぞれの名前の列に書く。右隣の列は「全42試合」のようにそのコートの
-//          試合数を書く。ブロック数 = 試合数 ÷ 3 で、それより後ろの枠は使わない。書かなければ全部使う)
+//   1行目: 見出し(A / B / C をそれぞれの名前の列に書く。右隣の列にそのコートの人数(ブロック数)を
+//          「14」「14人」のように書く。それより後ろの枠は使わない。書かなければ全部使う。
+//          「全42試合」のように試合数で書いても読める(÷3で人数にする))
 //   2行目以降の右隣の列: 「残り3試合」などの備考
 //   A列   : 枠の番号(1,2,3…)。空欄や数字でなければ上から順に番号を振る
 //   名前の列: 出場者の名前。「第3ブロック代表」のような名前や「未定」は代表未定の枠、
@@ -42,6 +43,9 @@ const ENTRANT_SHEET_NAME = "トーナメント出場者";
 // ブロックなしで使う年は false にする。
 const LIMIT_ENTRANTS_BY_BLOCK_COUNT = true;
 const BLOCK_COUNT_SOURCE_CELLS = { A: "G2", B: "H2", C: "I2" };
+// true  : 上のセルに「人数(ブロック数)」がそのまま入っている(試合数÷3をセル側で計算済み)
+// false : 上のセルに「試合数」が入っている(こちらで ÷ MATCHES_PER_BLOCK して人数にする)
+const BLOCK_COUNT_CELLS_HOLD_PEOPLE = true;
 const SCORE_SHEET_NAME = "FinalTournament";
 // トーナメントの並び(誰がどの枠か)を手で入れ替えたときの保存先。PropertiesServiceに保存するので、
 // スプレッドシート側には何も残らない。形: { "A": [ブロック番号 or null, ...(枠の順)], ... }
@@ -70,6 +74,9 @@ const CURRENT_MATCH_CACHE_KEY = "current_match";
 // スプレッドシート側には何も残らない。
 const NEXT_MATCH_VISIBLE_PROPERTY = "nextMatchNamesVisible";
 const TOURNAMENT_PUBLISHED_PROPERTY = "tournamentPublished"; // トーナメント表の公開/非公開(未設定なら非公開)
+const ENTRY_OPEN_PROPERTY = "entryOpen"; // 応募の公開/非公開(未設定なら非公開)。サイト公開後に管理画面から切り替える
+const FLAGS_CACHE_KEY = "site_flags";
+const FLAGS_CACHE_SECONDS = 10;
 const REDACTED_TEAM = { num: "?", name: "ー" };
 
 // ---------------------------------------------------------------
@@ -106,6 +113,10 @@ function doGet(event) {
 
   if (mode === "final") {
     return getFinalData();
+  }
+
+  if (mode === "flags") {
+    return getSiteFlags();
   }
 
   if (mode === "matchlog") {
@@ -242,6 +253,35 @@ function getTournamentData(event) {
   return jsonOutput(payload);
 }
 
+// サイトの「公開・表示」の切り替え3つをまとめて返す(シートは読まない軽いAPI。index.html の応募表示や、
+// 設定画面の「公開・表示の管理」が使う)。アクセスが多くても大丈夫なよう、短くキャッシュする。
+function getSiteFlags() {
+  const cached = CacheService.getScriptCache().get(FLAGS_CACHE_KEY);
+  if (cached) {
+    return ContentService.createTextOutput(cached).setMimeType(ContentService.MimeType.JSON);
+  }
+  const payload = {
+    entryOpen: isEntryOpen(),
+    tournamentPublished: isTournamentPublished(),
+    namesVisible: isNextMatchVisible()
+  };
+  try { CacheService.getScriptCache().put(FLAGS_CACHE_KEY, JSON.stringify(payload), FLAGS_CACHE_SECONDS); } catch (ignore) { /* キャッシュできなくても動く */ }
+  return jsonOutput(payload);
+}
+
+function clearFlagsCache() {
+  CacheService.getScriptCache().remove(FLAGS_CACHE_KEY);
+}
+
+function isEntryOpen() {
+  return PropertiesService.getScriptProperties().getProperty(ENTRY_OPEN_PROPERTY) === "true"; // 一度も切り替えていないときは非公開
+}
+
+function setEntryOpen(open) {
+  PropertiesService.getScriptProperties().setProperty(ENTRY_OPEN_PROPERTY, open ? "true" : "false");
+  clearFlagsCache();
+}
+
 function isTournamentPublished() {
   const stored = PropertiesService.getScriptProperties().getProperty(TOURNAMENT_PUBLISHED_PROPERTY);
   return stored === "true"; // 一度も切り替えていないときは非公開
@@ -249,6 +289,7 @@ function isTournamentPublished() {
 
 function setTournamentPublished(published) {
   PropertiesService.getScriptProperties().setProperty(TOURNAMENT_PUBLISHED_PROPERTY, published ? "true" : "false");
+  clearFlagsCache();
 }
 
 // 「機体一覧」シートの自動集計セル(試合数)から、このリーグのブロック数を読み取る。
@@ -264,7 +305,7 @@ function getBlockCountFromSource(spreadsheet, league) {
   const matchCount = Number(sourceSheet.getRange(cellRef).getValue());
   if (!Number.isFinite(matchCount) || matchCount <= 0) return null;
 
-  return Math.floor(matchCount / MATCHES_PER_BLOCK);
+  return Math.floor(BLOCK_COUNT_CELLS_HOLD_PEOPLE ? matchCount : matchCount / MATCHES_PER_BLOCK);
 }
 
 function buildTournamentPayload(spreadsheet, league) {
@@ -632,6 +673,7 @@ function setNextMatchVisible(visible) {
   PropertiesService.getScriptProperties().setProperty(NEXT_MATCH_VISIBLE_PROPERTY, visible ? "true" : "false");
   // 次のポーリングですぐ反映されるよう、短時間キャッシュを消しておく
   CacheService.getScriptCache().remove(CURRENT_MATCH_CACHE_KEY);
+  clearFlagsCache();
 }
 
 // ---------------------------------------------------------------
@@ -664,6 +706,12 @@ function doPost(event) {
     if (body.action === "setNextMatchVisible") {
       setNextMatchVisible(Boolean(body.visible));
       return jsonOutput({ ok: true, visible: Boolean(body.visible) });
+    }
+
+    // 応募の公開/非公開
+    if (body.action === "setEntryOpen") {
+      setEntryOpen(Boolean(body.open));
+      return jsonOutput({ ok: true, entryOpen: Boolean(body.open) });
     }
 
     // トーナメント表の公開/非公開
@@ -1043,26 +1091,33 @@ function readEntrantSheet(spreadsheet, league, limit) {
   }
   if (column < 0) return null;
 
-  // 見出しの右隣に「全42試合」とあれば、ブロック数 = 試合数 ÷ MATCHES_PER_BLOCK(42 → 14ブロック)として、
-  // それより後ろの枠は使わない。書いていなければ、引数で渡された値(機体一覧のブロック数)を使う。
-  const countMatch = normalizeText(values[headerRow][column + 1]).match(/^全(\d+)試合$/);
-  if (countMatch && Number(countMatch[1]) > 0) {
-    limit = Math.floor(Number(countMatch[1]) / MATCHES_PER_BLOCK);
-  }
+  // 見出しの右隣に人数(14 / 14人 / 14枠)があれば、それより後ろの枠は使わない。
+  // 「全42試合」のように試合数で書いてあれば、÷ MATCHES_PER_BLOCK(42 → 14)で人数にする。
+  // 書いていなければ、引数で渡された値(機体一覧のブロック数)を使う。
+  const headerCount = parseCountText(values[headerRow][column + 1]);
+  if (headerCount > 0) limit = headerCount;
 
   const numberByName = robotNumbersByName(spreadsheet);
   const rows = [];
   for (let r = headerRow + 1; r < values.length; r += 1) {
-    const name = String(values[r][column] || "").trim();
+    let name = String(values[r][column] || "").trim();
     if (isEmptyEntrantCell(name)) continue;
+    // 名前の列が「第3ブロック代表」のままで、右隣に名前が入っているときは、右隣を出場者の名前として使う
+    // (右隣が「残り3試合」「確定」などの備考や、空欄・エラーのときは、今まで通り代表未定の枠)
+    const nextCell = String(values[r][column + 1] || "").trim();
+    const nextIsName = Boolean(nextCell) && !isEmptyEntrantCell(nextCell) &&
+      !/^残り/.test(normalizeText(nextCell)) && !isConfirmed(nextCell) &&
+      !/^\d+$/.test(normalizeText(nextCell));
+    const named = pendingLabelFor(name) && nextIsName;
+    if (named) name = nextCell;
     // 備考の列が #N/A などのエラーの行は、その枠が使われていないという意味(例: ブロック数の少ないコートの余り行)
     const statusText = String(values[r][column + 1] || "").trim();
-    if (/^#/.test(statusText) && isEmptyEntrantCell(statusText)) continue;
+    if (!named && /^#/.test(statusText) && isEmptyEntrantCell(statusText)) continue;
     const seedText = column > 0 ? normalizeText(values[r][0]) : "";
     rows.push({
       seed: /^\d+$/.test(seedText) ? Number(seedText) : null,
       name,
-      status: String(values[r][column + 1] || "").trim()
+      status: named ? "確定" : String(values[r][column + 1] || "").trim()
     });
   }
   if (!rows.length) return null;
@@ -1100,6 +1155,16 @@ function readEntrantSheet(spreadsheet, league, limit) {
     pendingBlocks,
     entrants
   };
+}
+
+// 見出しの横のセルから人数を読む。「14」「全14人」「14枠」「14ブロック」→ 14、「全42試合」→ 14(÷3)。読めなければ 0
+function parseCountText(value) {
+  const text = normalizeText(value);
+  const people = text.match(/^全?(\d+)(人|枠|ブロック)?$/);
+  if (people) return Number(people[1]);
+  const matches = text.match(/^全(\d+)試合$/);
+  if (matches) return Math.floor(Number(matches[1]) / MATCHES_PER_BLOCK);
+  return 0;
 }
 
 // 空欄・「-」・#N/A などのエラー表示は「枠なし」

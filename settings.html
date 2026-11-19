@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>大会設定 - 立命杯2026</title>
-  <script src="settings.js?v=20261118"></script>
+  <script src="settings.js?v=20261120"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -24,7 +24,8 @@
     }
 
     body { padding: 64px clamp(12px, 3vw, 28px) 48px; }
-    .gate { min-height: 70vh; display: grid; place-items: center; padding: 16px; }
+    /* トーナメントのログインと同じ: 画面全体の真ん中に置く */
+    .gate { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 24px; background: #fff; }
     .gate-box { display: grid; gap: 14px; width: min(340px, 100%); padding: 24px; background: #fff; border: 1px solid #e4dcde; border-top: 5px solid var(--primary); border-radius: 12px; box-shadow: 0 8px 22px rgb(75 36 40 / 9%); }
     .gate-box h2 { margin: 0; font-size: 1.1rem; color: var(--primary); }
     .gate-box label { display: grid; gap: 6px; color: var(--muted); font-size: 0.82rem; font-weight: bold; }
@@ -46,6 +47,20 @@
 
     h1 { font-size: 1.3rem; margin-bottom: 6px; }
     h2 { font-size: 1.05rem; margin: 26px 0 10px; color: var(--primary); }
+    h3 { font-size: 0.95rem; margin: 20px 0 8px; color: var(--primary); }
+    .round-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 2px 18px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+    .round-list li { padding: 2px 0; }
+    .round-list li.is-none { color: var(--muted); }
+    .round-list .why { font-size: 0.78rem; }
+    .flag-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 10px 0; }
+    .flag-row + .flag-row { border-top: 1px solid var(--line); }
+    .flag-main { flex: 1 1 260px; display: grid; gap: 2px; }
+    .flag-title { font-weight: bold; font-size: 0.95rem; }
+    .flag-state { display: inline-block; margin-left: 8px; padding: 0 10px; border-radius: 999px; font-size: 0.74rem; font-weight: bold; line-height: 1.8; color: var(--muted); background: #f1eeef; border: 1px solid #c9c0c3; }
+    .flag-state.is-on { color: #1b7a3d; background: #eaf6ee; border-color: #1b7a3d; }
+    .flag-row .hint { color: var(--muted); font-size: 0.78rem; line-height: 1.6; }
+    .flag-row button { flex: 0 0 auto; min-width: 9.5em; }
+    button:disabled { opacity: 0.5; cursor: default; }
     .lead { color: var(--muted); font-size: 0.9rem; line-height: 1.7; }
 
     .card {
@@ -63,6 +78,8 @@
       border: 1px solid #c9c0c3; border-radius: 8px; background: #fff;
     }
 
+    .date-parts { display: inline-flex; align-items: center; gap: 6px; }
+    .date-parts input { width: 5.5em; min-height: 38px; padding: 4px 10px; font: inherit; border: 1px solid #c9c0c3; border-radius: 8px; background: #fff; }
     .choice { display: inline-flex; align-items: center; gap: 6px; margin-right: 12px; cursor: pointer; }
     .choice input { width: 18px; height: 18px; accent-color: var(--primary); }
 
@@ -157,23 +174,34 @@
   <main class="page" id="main" hidden>
     <h1>大会設定</h1>
     <p class="lead">
-      回戦ごとの本数・開催日・コート数を決めて、設定の文章を作る画面です。
-      この画面では<b>保存されません</b>。作った文章を <span class="path">documents/settings.txt</span> に貼り付けると、
-      全ページに反映されます(通信はAPIを使わないので、アクセスが増えても影響しません)。
+      管理者用の画面です。上から、<b>今年度の設定</b>(いまサイトで使われている設定)、<b>公開・表示の管理</b>(ボタンですぐ切り替わります)、
+      <b>来年度の設定を作る</b>(文章を作って <span class="path">documents/settings.txt</span> に貼り付ける)、<b>対戦の並び</b>の順です。
     </p>
 
-    <h2>1. 設定する</h2>
+    <h2>今年度の設定(いま公開されている設定)</h2>
+    <div class="card published" id="published">読み込み中…</div>
+
+    <h2>公開・表示の管理</h2>
+    <div class="card flags" id="flags">読み込み中…</div>
+    <p class="status" id="flags-status" role="status"></p>
+    <p class="note" style="margin-top:0">
+      ここはサーバー(API)に保存されるので、サイトを公開したあとでも、ボタンを押すだけですぐ切り替わります(settings.txt の書き換えは要りません)。
+    </p>
+
+    <h2>来年度の設定を作る</h2>
+    <p class="note" style="margin-top:0">
+      この欄は<b>保存されません</b>。文章を作って、<span class="path">documents/settings.txt</span> に貼り付けると全ページに反映されます(通信はAPIを使わないので、アクセスが増えても影響しません)。
+      今年度の設定だけを直すときも、ここで作ります。
+    </p>
     <div class="card">
       <div class="field">
-        <label for="event-date">開催日</label>
-        <input type="date" id="event-date">
+        <label for="date-y">開催日</label>
+        <span class="date-parts" id="event-date">
+          <input type="number" id="date-y" min="2000" max="2100" inputmode="numeric" aria-label="年"> 年
+          <select id="date-m" aria-label="月"></select> 月
+          <select id="date-d" aria-label="日"></select> 日
+        </span>
         <span class="hint">index.html の日付表示(「開催日」の目印をつけた場所)に使われます。</span>
-      </div>
-
-      <div class="field">
-        <span class="label">応募セクション</span>
-        <label class="choice"><input type="checkbox" id="entry-open">「応募」を表示する</label>
-        <span class="hint">受付期間だけチェックを入れます。チェックなしだと、応募のセクションとメニューの「応募」が消えます。</span>
       </div>
 
       <div class="field">
@@ -200,11 +228,11 @@
       <div class="field">
         <span class="label">何本先取か</span>
         <div class="wins-grid" id="wins-grid"></div>
-        <span class="hint">回戦ごとに決めます(何試合目、のような細かい指定はできません)。コート内のリーグ数が多いと「3回戦」「4回戦」「5回戦」が出ます。今の人数で存在しない回戦は「なし」と表示されます。「最終戦」は最終決戦・決勝・3位決定戦です。</span>
+        <span class="hint">5回戦まで、回戦ごとに決めます(何試合目、のような細かい指定はできません)。人数が少なくて使わない回戦も、書いておいて構いません(使わない回戦は、自動で無視されます)。「最終戦」は最終決戦・決勝・3位決定戦です。</span>
       </div>
     </div>
 
-    <h2>2. 作られた設定の文章</h2>
+    <h3>作られた設定の文章</h3>
     <textarea id="output" readonly spellcheck="false" aria-label="作られた設定の文章"></textarea>
     <div class="buttons">
       <button type="button" id="copy-button">コピーする</button>
@@ -212,7 +240,7 @@
     </div>
     <p class="status" id="status" role="status"></p>
 
-    <h2>3. 反映のしかた(サーバーにアップロード)</h2>
+    <h3>反映のしかた(サーバーにアップロード)</h3>
     <div class="card">
       <ol class="steps">
         <li>上の「コピーする」を押す(またはダウンロードする)。</li>
@@ -223,7 +251,7 @@
         <li>複製(または手元)のフォルダの <span class="path">documents</span> フォルダにある <span class="path">settings.txt</span> を開き、中身を<b>すべて消して貼り付け</b>て保存する(ダウンロードしたファイルは、同じ名前で上書き)。</li>
         <li>サークルのサーバーに、そのフォルダを<b>フォルダごとアップロード</b>する。設定だけ直したときは、<span class="path">documents/settings.txt</span> だけを上書きでも構いません。</li>
         <li>サイトを開き直す(変わらないときは、ブラウザの再読み込み。Ctrl+Shift+R)。</li>
-        <li>この画面を開き直して、下の「いま公開されている設定」が作った内容と同じになっていれば完了。</li>
+        <li>この画面を開き直して、一番上の「今年度の設定」が作った内容と同じになっていれば完了。</li>
       </ol>
       <p class="note">
         カンマ(,)や引用符(")が消えると読み込めなくなり、初期値で動きます。うまくいかないときは、もう一度コピーして貼り直してください。
@@ -232,9 +260,7 @@
       </p>
     </div>
 
-    <h2>いま公開されている設定</h2>
-    <div class="card published" id="published">読み込み中…</div>
-    <h2>4. 対戦の並び(人の入れ替え)</h2>
+    <h2>対戦の並び(人の入れ替え)</h2>
     <div class="card">
       <p class="note" style="margin-top:0">
         各コートのリーグ優勝者の並びです。1回戦で当たる2人が1組、そのとなりの組の勝者と2回戦で当たります。
@@ -258,7 +284,32 @@
       { key: "最終戦", sub: "最終決戦・決勝・3位決定戦" }
     ];
 
-    var dateInput = document.getElementById("event-date");
+    // 開催日: 年・月・日の3つの欄(ブラウザの日付欄は、端末の言語によって「月/日/年」の欧米順になるため使わない)。
+    // dateInput.value は "2026-12-05" の形で読み書きでき、変わると input イベントが飛ぶ
+    var dateInput = (function () {
+      var y = document.getElementById("date-y"), m = document.getElementById("date-m"), d = document.getElementById("date-d");
+      var listeners = [];
+      for (var i = 1; i <= 12; i++) m.insertAdjacentHTML("beforeend", '<option value="' + i + '">' + i + "</option>");
+      for (var j = 1; j <= 31; j++) d.insertAdjacentHTML("beforeend", '<option value="' + j + '">' + j + "</option>");
+      function pad(n) { return (n < 10 ? "0" : "") + n; }
+      function fire() { listeners.forEach(function (fn) { fn(); }); }
+      [y, m, d].forEach(function (el) { el.addEventListener("input", fire); el.addEventListener("change", fire); });
+      return {
+        get value() {
+          var yy = Number(y.value), mm = Number(m.value), dd = Number(d.value);
+          if (!(yy >= 2000 && yy <= 2100) || !mm || !dd) return "";
+          var date = new Date(yy, mm - 1, dd);
+          if (date.getMonth() !== mm - 1) return ""; // 2月30日などは無効
+          return yy + "-" + pad(mm) + "-" + pad(dd);
+        },
+        set value(iso) {
+          var p = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || "");
+          if (!p) return;
+          y.value = p[1]; m.value = String(Number(p[2])); d.value = String(Number(p[3]));
+        },
+        addEventListener: function (type, fn) { listeners.push(fn); }
+      };
+    })();
     var winsGrid = document.getElementById("wins-grid");
     var output = document.getElementById("output");
     var statusEl = document.getElementById("status");
@@ -277,7 +328,7 @@
           (item.sub ? '<span class="sub">' + escapeHtml(item.sub) + '</span>' : '') +
           '</span><select data-round="' + escapeHtml(item.key) + '">' +
           [1, 2, 3].map(function (n) { return '<option value="' + n + '">' + n + '本先取</option>'; }).join("") +
-          '</select><span class="none-label" hidden>なし</span></label>';
+          '</select></label>';
       }).join("");
     }
 
@@ -292,11 +343,10 @@
       return names;
     }
 
-    // 有効なコートのどこにも無い回戦は「なし」表示にする(データ未取得なら何もしない)
     // その回戦が、有効なコートのどこかにあるか(データ未取得のときは「ある」とみなす)
-    function roundExists(key) {
+    function roundExists(key, courts) {
       var known = false, found = false;
-      ["A", "B", "C"].slice(0, readForm().courts).forEach(function (lg) {
+      ["A", "B", "C"].slice(0, courts).forEach(function (lg) {
         var d = bracketData[lg];
         if (d && d.bracketSize) {
           known = true;
@@ -306,30 +356,38 @@
       return !known || found;
     }
 
+    // 「いまは14人なので」のような、使われていない回戦の理由。人数が取れていなければ空
+    function peopleNote(courts) {
+      var counts = [];
+      ["A", "B", "C"].slice(0, courts).forEach(function (lg) {
+        var d = bracketData[lg];
+        if (d && d.bracketSize) counts.push({ lg: lg, n: d.blockCount || 0 });
+      });
+      if (!counts.length) return "";
+      var distinct = [];
+      counts.forEach(function (c) { if (distinct.indexOf(c.n) < 0) distinct.push(c.n); });
+      if (distinct.length === 1) return "いまは" + distinct[0] + "人なので";
+      return "いまの人数(" + counts.map(function (c) { return c.lg + c.n; }).join("・") + ")では";
+    }
+
+    // 「Aコート14人 / Bコート14人」のような、いまの出場者数の表示。取れていなければ空
+    function peopleLine(courts) {
+      var parts = [];
+      ["A", "B", "C"].slice(0, courts).forEach(function (lg) {
+        var d = bracketData[lg];
+        if (d && d.bracketSize) parts.push(lg + "コート" + (d.blockCount || 0) + "人");
+      });
+      return parts.join(" / ");
+    }
+
     var publishedSettings = null;
     function renderPublished() {
       if (!publishedSettings) return;
       publishedEl.innerHTML = (window.RRST_SETTINGS_LOADED ? "" : "<b>settings.txt が見つからない、または読めません。</b>いまは初期値で動いています。<br>") + summary(publishedSettings);
     }
 
+    // 人数のデータを取り直したあとなどに、画面を描き直す
     function refreshRoundAvailability() {
-      var courts = readForm().courts;
-      var leagues = ["A", "B", "C"].slice(0, courts);
-      var used = {};
-      var known = false;
-      leagues.forEach(function (lg) {
-        var d = bracketData[lg];
-        if (d && d.bracketSize) {
-          known = true;
-          roundNamesFor(d.bracketSize).forEach(function (n) { used[n] = true; });
-        }
-      });
-      winsGrid.querySelectorAll("label[data-label]").forEach(function (label) {
-        var key = label.dataset.label;
-        var none = known && key !== "最終戦" && !used[key];
-        label.querySelector("select").hidden = none;
-        label.querySelector(".none-label").hidden = !none;
-      });
       refreshOutput();
       renderPublished();
     }
@@ -338,13 +396,11 @@
       var courtsInput = document.querySelector('input[name="courts"]:checked');
       var wins = {};
       winsGrid.querySelectorAll("select").forEach(function (select) {
-        // 今の人数で存在しない回戦(「なし」表示のもの)は 0 にする
-        wins[select.dataset.round] = select.hidden ? 0 : Number(select.value);
+        wins[select.dataset.round] = Number(select.value);
       });
       return {
         eventDate: dateInput.value,
         courts: courtsInput ? Number(courtsInput.value) : 3,
-        entryOpen: document.getElementById("entry-open").checked,
         apiUrl: document.getElementById("api-url").value.trim(),
         entryFormUrl: document.getElementById("entry-form-url").value.trim(),
         wins: wins
@@ -353,7 +409,6 @@
 
     function writeForm(settings) {
       dateInput.value = settings.eventDate;
-      document.getElementById("entry-open").checked = settings.entryOpen === true;
       document.getElementById("api-url").value = settings.apiUrl || "";
       document.getElementById("entry-form-url").value = settings.entryFormUrl || "";
       var radio = document.querySelector('input[name="courts"][value="' + settings.courts + '"]');
@@ -374,7 +429,6 @@
         "{",
         '  "eventDate": ' + JSON.stringify(settings.eventDate) + ",",
         '  "courts": ' + settings.courts + ",",
-        '  "entryOpen": ' + (settings.entryOpen ? "true" : "false") + ",",
         '  "apiUrl": ' + JSON.stringify(settings.apiUrl) + ",",
         '  "entryFormUrl": ' + JSON.stringify(settings.entryFormUrl) + ",",
         '  "wins": {'
@@ -388,14 +442,22 @@
     }
 
     function summary(settings) {
+      var note = peopleNote(settings.courts);
       var rounds = ROUND_ITEMS.map(function (item) {
         var wins = settings.wins[item.key];
-        var none = !(wins >= 1) || (item.key !== "最終戦" && !roundExists(item.key));
-        return escapeHtml(item.key) + ": <b>" + (none ? "なし" : wins + "本先取") + "</b>";
-      }).join(" / ");
+        var unused = item.key !== "最終戦" && !roundExists(item.key, settings.courts);
+        var setting = wins >= 1 ? wins + "本先取" : "なし";
+        if (unused) {
+          return '<li class="is-none">' + escapeHtml(item.key) + ": <b>" + setting + '</b> <span class="why">(' +
+            escapeHtml((note || "いまの人数では") + " なし") + ")</span></li>";
+        }
+        return "<li>" + escapeHtml(item.key) + ": <b>" + setting + "</b></li>";
+      }).join("");
       return "開催日: <b>" + escapeHtml(window.RRST_formatDate(settings.eventDate, "long") || settings.eventDate) + "</b><br>" +
         "コート数: <b>" + settings.courts + "コート</b><br>" +
-        "応募セクション: <b>" + (settings.entryOpen ? "表示する" : "表示しない") + "</b><br>" + rounds;
+        (peopleLine(settings.courts) ? "いまの出場者数: <b>" + escapeHtml(peopleLine(settings.courts)) + "</b><br>" : "") +
+        "何本先取か(設定):" +
+        '<ul class="round-list">' + rounds + "</ul>";
     }
 
     function setStatus(text, kind) {
@@ -456,7 +518,6 @@
       });
     });
     winsGrid.addEventListener("change", refreshOutput);
-    document.getElementById("entry-open").addEventListener("change", refreshOutput);
     document.getElementById("api-url").addEventListener("input", refreshOutput);
     document.getElementById("entry-form-url").addEventListener("input", refreshOutput);
 
@@ -651,13 +712,81 @@
     });
     bkBody.addEventListener("dragend", function () { dragFrom = null; });
 
+    // ===== 公開・表示の管理(APIに保存。サイト公開後でも切り替えられる) =====
+    var FLAGS = [
+      { key: "tournamentPublished", title: "トーナメント表", on: "公開中", off: "非公開",
+        onBtn: "非公開にする", offBtn: "公開する", action: "setTournamentPublished", param: "published",
+        hint: "非公開のあいだ、観客のトーナメント表には「公開までしばらくお待ちください」と出ます(管理者は見られます)。",
+        confirmOn: "トーナメント表を公開しますか?\n公開すると、誰でも見られるようになります。",
+        confirmOff: "トーナメント表を非公開にしますか?\n非公開にすると、管理者以外には「公開までお待ちください」と表示されます。" },
+      { key: "entryOpen", title: "応募", on: "表示中", off: "非表示",
+        onBtn: "非表示にする", offBtn: "表示する", action: "setEntryOpen", param: "open",
+        hint: "表示中は、index.html に応募のセクションと、メニューの「応募」が出ます(応募フォームのURLは来年度の設定で決めます)。",
+        confirmOn: "応募を表示しますか?\nindex.html に応募のセクションが出ます。",
+        confirmOff: "応募を非表示にしますか?\nindex.html から応募のセクションが消えます。" },
+      { key: "namesVisible", title: "次の試合の対戦カード", on: "名前を表示", off: "伏せ字",
+        onBtn: "伏せ字にする", offBtn: "名前を表示する", action: "setNextMatchVisible", param: "visible",
+        hint: "試合の前・後に名前を隠したいときは「伏せ字」にします(名前と番号が「?」「ー」になります)。呼び出し画面でも切り替えられます。" }
+    ];
+    var flagState = null; // { tournamentPublished, entryOpen, namesVisible }。読めていないときは null
+    var flagsEl = document.getElementById("flags");
+    var flagsStatusEl = document.getElementById("flags-status");
+
+    function renderFlags() {
+      flagsEl.innerHTML = FLAGS.map(function (f) {
+        var known = flagState && typeof flagState[f.key] === "boolean";
+        var on = known && flagState[f.key];
+        return '<div class="flag-row"><div class="flag-main"><span><span class="flag-title">' + escapeHtml(f.title) + '</span>' +
+          '<span class="flag-state' + (on ? " is-on" : "") + '">' + (known ? escapeHtml(on ? f.on : f.off) : "読み込めません") + '</span></span>' +
+          '<span class="hint">' + escapeHtml(f.hint) + '</span></div>' +
+          '<button type="button" data-flag="' + f.key + '"' + (known ? "" : " disabled") + '>' + escapeHtml(on ? f.onBtn : f.offBtn) + '</button></div>';
+      }).join("");
+    }
+
+    function loadFlags() {
+      renderFlags();
+      var url = new URL(API_URL);
+      url.searchParams.set("mode", "flags");
+      url.searchParams.set("t", Date.now());
+      fetch(url).then(function (r) { return r.json(); }).then(function (d) {
+        flagState = d && typeof d === "object" && !d.error ? d : null;
+        renderFlags();
+      }).catch(function () { flagState = null; renderFlags(); });
+    }
+
+    flagsEl.addEventListener("click", function (event) {
+      var button = event.target.closest("button[data-flag]");
+      if (!button || !flagState) return;
+      var f = FLAGS.filter(function (item) { return item.key === button.dataset.flag; })[0];
+      var next = !flagState[f.key];
+      var question = next ? f.confirmOn : f.confirmOff;
+      if (question && !window.confirm(question)) return;
+      var body = { action: f.action, token: adminToken };
+      body[f.param] = next;
+      button.disabled = true;
+      flagsStatusEl.textContent = "保存中…"; flagsStatusEl.className = "status";
+      postJson(body).then(function (res) {
+        if (!res || !res.ok) throw new Error((res && res.error) || "保存できませんでした");
+        flagState[f.key] = next;
+        renderFlags();
+        flagsStatusEl.textContent = "「" + f.title + "」を「" + (next ? f.on : f.off) + "」にしました。";
+        flagsStatusEl.className = "status is-ok";
+      }).catch(function (err) {
+        renderFlags();
+        flagsStatusEl.textContent = (err && err.message) || "通信に失敗しました。もう一度お試しください。";
+        flagsStatusEl.className = "status is-warn";
+      });
+    });
+
     // 開くたびにパスワードを確認する(前に入力した分は使い回さない。パスワードはこのページの中だけで持つ)
     function startEditor() {
       API_URL = window.RRST_SETTINGS.apiUrl || document.getElementById("gate-url").value.trim();
       loadAll();
+      loadFlags();
     }
 
     buildWinsGrid();
+    renderFlags();
     writeForm(window.RRST_DEFAULT_SETTINGS);
     refreshOutput();
 

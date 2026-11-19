@@ -129,3 +129,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
   targets.forEach((target) => observer.observe(target));
 });
+
+// --- ハンバーガーメニュー: メニューのリンク以外(上のバナー、クイックタブ、本文など)を押したら閉じる ---
+// (開閉ボタンそのものは script.js が処理するので、ここでは触らない)
+document.addEventListener("DOMContentLoaded", () => {
+  const header = document.querySelector("header");
+  if (!header) return;
+
+  document.addEventListener("click", (event) => {
+    if (!header.classList.contains("nav-open")) return;
+    if (event.target.closest(".menu-toggle")) return;                       // 開閉ボタン
+    if (event.target.closest("header nav") && !event.target.closest("a")) return; // メニューの余白は閉じない
+    header.classList.remove("nav-open");                                    // メニューのリンク・それ以外 → 閉じる
+  });
+});

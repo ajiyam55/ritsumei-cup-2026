@@ -1,15 +1,14 @@
 {
   "eventDate": "2026-12-05",
   "courts": 3,
-  "entryOpen": false,
-  "apiUrl": "https://script.google.com/macros/s/AKfycby0-T0Itj82Euw0ppcub9aTWIJBQUlmKMNnPjNpAihmv4QjsDeShyqrPzaBeiZDIsED-w/exec",
+  "apiUrl": "https://script.google.com/macros/s/AKfycbwZ359-zv8L3DEbIWI67BaZSWNQIwSjB2A_GG2-3se9fAxWGdCiXCTreZGNXvr63u4ExA/exec",
   "entryFormUrl": "https://forms.gle/4FYpiQj6hGrap2pq8",
   "wins": {
     "1回戦": 1,
     "2回戦": 2,
-    "3回戦": 0,
-    "4回戦": 0,
-    "5回戦": 0,
+    "3回戦": 2,
+    "4回戦": 2,
+    "5回戦": 2,
     "準々決勝": 2,
     "準決勝": 2,
     "最終戦": 2
