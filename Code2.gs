@@ -11,14 +11,16 @@
  *
  * 【設定セル】
  * Q3：抽選実行チェックボックス
- * R11：Aリーグの機体数
+ * R11：Aリーグの機体数(3の倍数。0ならそのリーグは使わない)
  * R12：Bリーグの機体数
  * R13：Cリーグの機体数
- * R15：1機体目の機体数
- * R16：2機体目の機体数
+ * R15：1機体目の機体数(自動入力)
+ * R16：2機体目の機体数(自動入力)
+ *
+ * 全機体数 = R15 + R16。R11～R13の合計も、この全機体数と同じにしてください。
  *
  * 【抽選条件】
- * ・番号1～120を重複なく使用
+ * ・番号1～(1機体目の数＋2機体目の数)を重複なく使用(機体数は固定ではなく、R15・R16から自動で決まる)
  * ・1ブロック3機体
  * ・同じブロックに同じ所属を入れない
  * ・2機体持ちの2機体は、リーグ内ブロック番号の差が7以上
@@ -105,7 +107,7 @@ function runRandomDraw(targetSheet) {
     SpreadsheetApp.flush();
 
     ss.toast(
-      '抽選完了！ N列に120機体分の番号を出力しました。',
+      '抽選完了！ N列に' + result.output.length + '機体分の番号を出力しました。',
       '抽選',
       8
     );
@@ -163,15 +165,16 @@ function createDrawResult_(sheet) {
 
   const totalCount = firstCount + secondCount;
 
+  // 全機体数は固定ではなく、R15(1機体目)+R16(2機体目)で決まる
   if (
     !Number.isInteger(firstCount) ||
     !Number.isInteger(secondCount) ||
     firstCount <= 0 ||
     secondCount < 0 ||
-    totalCount !== 120
+    secondCount > firstCount
   ) {
     throw new Error(
-      'R15・R16を確認してください。合計120機体が必要です。'
+      'R15・R16を確認してください。1機体目は1機以上、2機体目は0以上で1機体目以下にしてください。'
     );
   }
 
@@ -187,10 +190,11 @@ function createDrawResult_(sheet) {
     leagueCounts.some(
       n => !Number.isInteger(n) || n < 0
     ) ||
-    leagueCounts.reduce((a, b) => a + b, 0) !== 120
+    leagueCounts.reduce((a, b) => a + b, 0) !== totalCount
   ) {
     throw new Error(
-      'R11～R13のリーグ別機体数を確認してください。0以上で合計120機体にしてください。'
+      'R11～R13のリーグ別機体数を確認してください。0以上で、合計が全機体数(' +
+      totalCount + '機体 = R15+R16)になるようにしてください。'
     );
   }
 
@@ -801,6 +805,7 @@ function solveAssignment_(
 
   return {
     output,
+    total: allMachines.length, // 全機体数(最終検証で使う)
     blocks,
     machines: allMachines,
     pairs,
@@ -822,21 +827,23 @@ function validateFinalResult_(result) {
   // 番号の重複・欠番チェック
   // ----------------------------------------------------------
 
-  if (numbers.length !== 120) {
+  const total = result.total;
+
+  if (numbers.length !== total) {
     throw new Error(
-      '抽選結果が120機体分ではありません。'
+      '抽選結果が' + total + '機体分ではありません。'
     );
   }
 
   const uniqueNumbers = new Set(numbers);
 
-  if (uniqueNumbers.size !== 120) {
+  if (uniqueNumbers.size !== total) {
     throw new Error(
       '抽選番号に重複があります。'
     );
   }
 
-  for (let i = 1; i <= 120; i++) {
+  for (let i = 1; i <= total; i++) {
     if (!uniqueNumbers.has(i)) {
       throw new Error(
         '抽選番号' + i + 'が欠番です。'
