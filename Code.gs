@@ -37,6 +37,8 @@ const LEGACY_MATCH_COLUMNS = [4, 5];
 //   A列   : 枠の番号(1,2,3…)。空欄や数字でなければ上から順に番号を振る
 //   名前の列: 出場者の名前。「第3ブロック代表」のような名前や「未定」は代表未定の枠、
 //            空欄・「-」・#N/A などは枠なしとして扱う
+//   ・名前の列が「第3ブロック代表」のままで、右隣に名前があれば、右隣を出場者の名前として使う
+//   ・その2つ右の列の見出しが「機体番号」なら、そこから機体番号を読む(無ければ「機体一覧」から名前で探す)
 // ブロックを使わず、トーナメントだけやるときは、ここに名前を並べるだけでよい。
 const ENTRANT_SHEET_NAME = "トーナメント出場者";
 // true のとき、「機体一覧」にブロック数(試合数)があれば、それより後ろの枠は使わない(今年の余り行の対策)。
@@ -117,6 +119,10 @@ function doGet(event) {
 
   if (mode === "flags") {
     return getSiteFlags();
+  }
+
+  if (mode === "qualifiers") {
+    return getQualifiers();
   }
 
   if (mode === "matchlog") {
@@ -250,6 +256,35 @@ function getTournamentData(event) {
   const payload = buildTournamentPayload(SpreadsheetApp.getActiveSpreadsheet(), league);
   if (!payload.error) putCache(league, payload);
   payload.published = published;
+  return jsonOutput(payload);
+}
+
+// トーナメント進出者(出場者シートで名前が決まっている人)の一覧。出場機体の一覧(静的ファイル)で
+// 色を付けるのに使う。シートは出場者の列と「機体一覧」しか読まない軽いAPIで、短くキャッシュする。
+const QUALIFIERS_CACHE_KEY = "qualifiers";
+const QUALIFIERS_CACHE_SECONDS = 20;
+
+function getQualifiers() {
+  const cached = CacheService.getScriptCache().get(QUALIFIERS_CACHE_KEY);
+  if (cached) {
+    return ContentService.createTextOutput(cached).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const entrants = [];
+  Object.keys(LEAGUE_SHEETS).forEach(league => {
+    const blockCount = getBlockCountFromSource(spreadsheet, league);
+    const source = readEntrantSheet(spreadsheet, league, LIMIT_ENTRANTS_BY_BLOCK_COUNT ? blockCount : null) ||
+      readLeagueSheet(spreadsheet.getSheetByName(LEAGUE_SHEETS[league]), blockCount);
+    if (!source) return;
+    source.entrants.forEach(entrant => {
+      if (entrant.pending) return; // 代表がまだ決まっていない枠は含めない
+      entrants.push({ league, number: String(entrant.number || ""), name: entrant.name });
+    });
+  });
+
+  const payload = { generatedAt: Date.now(), entrants };
+  try { CacheService.getScriptCache().put(QUALIFIERS_CACHE_KEY, JSON.stringify(payload), QUALIFIERS_CACHE_SECONDS); } catch (ignore) { /* キャッシュできなくても動く */ }
   return jsonOutput(payload);
 }
 
@@ -1097,6 +1132,9 @@ function readEntrantSheet(spreadsheet, league, limit) {
   const headerCount = parseCountText(values[headerRow][column + 1]);
   if (headerCount > 0) limit = headerCount;
 
+  // 名前の列の2つ右の見出しが「機体番号」なら、その列から機体番号を読む(無ければ「機体一覧」から名前で探す)
+  const numberColumn = /機体番号|番号/.test(normalizeText(values[headerRow][column + 2])) ? column + 2 : -1;
+
   const numberByName = robotNumbersByName(spreadsheet);
   const rows = [];
   for (let r = headerRow + 1; r < values.length; r += 1) {
@@ -1114,8 +1152,10 @@ function readEntrantSheet(spreadsheet, league, limit) {
     const statusText = String(values[r][column + 1] || "").trim();
     if (!named && /^#/.test(statusText) && isEmptyEntrantCell(statusText)) continue;
     const seedText = column > 0 ? normalizeText(values[r][0]) : "";
+    const numberText = numberColumn >= 0 ? normalizeText(values[r][numberColumn]) : "";
     rows.push({
       seed: /^\d+$/.test(seedText) ? Number(seedText) : null,
+      number: /^\d+$/.test(numberText) ? numberText : "",
       name,
       status: named ? "確定" : String(values[r][column + 1] || "").trim()
     });
@@ -1142,7 +1182,7 @@ function readEntrantSheet(spreadsheet, league, limit) {
       entrants.push({ number: "", seed: row.seed, name: pendingLabel, wins: "", pending: true });
       blocks.push({ id: row.seed, name: `第${row.seed}ブロック`, representative: "", confirmed: false });
     } else {
-      entrants.push({ number: numberByName[row.name] || "", seed: row.seed, name: row.name, wins: "" });
+      entrants.push({ number: row.number || numberByName[row.name] || "", seed: row.seed, name: row.name, wins: "" });
       blocks.push({ id: row.seed, name: `第${row.seed}ブロック`, representative: row.name, confirmed: isConfirmed(row.status) });
     }
   });

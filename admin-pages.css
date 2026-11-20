@@ -1,0 +1,149 @@
+/* 設定画面(settings.html)と更新準備(prepare.html)で共通の見た目 */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --primary: #7b1e24;
+    --ink: #242124;
+    --muted: #777176;
+    --line: #e3dcde;
+    --card-bg: #f7f4f5;
+  }
+
+  html, body {
+    min-height: 100%;
+    background: #fff;
+    color: var(--ink);
+    font-family: "Yu Gothic", "Hiragino Kaku Gothic ProN", sans-serif;
+  }
+
+  body { padding: 64px clamp(12px, 3vw, 28px) 48px; }
+  /* トーナメントのログインと同じ: 画面全体の真ん中に置く */
+  .gate { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 24px; background: #fff; }
+  .gate-box { display: grid; gap: 14px; width: min(340px, 100%); padding: 24px; background: #fff; border: 1px solid #e4dcde; border-top: 5px solid var(--primary); border-radius: 12px; box-shadow: 0 8px 22px rgb(75 36 40 / 9%); }
+  .gate-box h2 { margin: 0; font-size: 1.1rem; color: var(--primary); }
+  .gate-box label { display: grid; gap: 6px; color: var(--muted); font-size: 0.82rem; font-weight: bold; }
+  .gate-box input { min-height: 40px; padding: 6px 10px; color: var(--ink); font: inherit; font-size: 1rem; border: 1px solid #d4cdd0; border-radius: 6px; }
+  .gate-box button { min-height: 40px; color: #fff; background: var(--primary); border: 0; border-radius: 6px; font: inherit; font-weight: bold; cursor: pointer; }
+  .gate-box .bk-warn { min-height: 1.2em; margin: 0; }
+  .gate[hidden], .page[hidden], .gate-box label[hidden] { display: none; }
+  .page { width: min(820px, 100%); margin: 0 auto; }
+
+  .back-button {
+    position: fixed; top: 16px; left: 24px; z-index: 10;
+    background: var(--primary); color: #fff; padding: 10px 18px;
+    border-radius: 8px; text-decoration: none; font-weight: bold;
+    box-shadow: 0 4px 12px rgb(65 25 28 / 18%);
+  }
+  .back-button:hover { background: #a54c52; }
+  html.is-embedded .back-button { display: none; }
+  html.is-embedded body { padding-top: 20px; }
+
+  h1 { font-size: 1.3rem; margin-bottom: 6px; }
+  h2 { font-size: 1.05rem; margin: 26px 0 10px; color: var(--primary); }
+  h3 { font-size: 0.95rem; margin: 20px 0 8px; color: var(--primary); }
+  .round-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 2px 18px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .round-list li { padding: 2px 0; }
+  .round-list li.is-none { color: var(--muted); }
+  .round-list .why { font-size: 0.78rem; }
+  .flag-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 10px 0; }
+  .flag-row + .flag-row { border-top: 1px solid var(--line); }
+  .flag-main { flex: 1 1 260px; display: grid; gap: 2px; }
+  .flag-title { font-weight: bold; font-size: 0.95rem; }
+  .flag-state { display: inline-block; margin-left: 8px; padding: 0 10px; border-radius: 999px; font-size: 0.74rem; font-weight: bold; line-height: 1.8; color: var(--muted); background: #f1eeef; border: 1px solid #c9c0c3; }
+  .flag-state.is-on { color: #1b7a3d; background: #eaf6ee; border-color: #1b7a3d; }
+  .flag-row .hint { color: var(--muted); font-size: 0.78rem; line-height: 1.6; }
+  .flag-row button { flex: 0 0 auto; min-width: 9.5em; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .lead { color: var(--muted); font-size: 0.9rem; line-height: 1.7; }
+
+  .card {
+    background: var(--card-bg); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px;
+  }
+
+  .field { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 8px 0; }
+  .field + .field { border-top: 1px solid var(--line); }
+  .field > label, .field > .label { flex: 0 0 9.5em; font-weight: bold; font-size: 0.92rem; }
+  .field .hint { flex-basis: 100%; margin-left: 0; color: var(--muted); font-size: 0.78rem; line-height: 1.6; }
+
+  input[type="date"], select {
+    min-height: 38px; padding: 4px 10px; font: inherit;
+    border: 1px solid #c9c0c3; border-radius: 8px; background: #fff;
+  }
+
+  .date-parts { display: inline-flex; align-items: center; gap: 6px; }
+  .date-parts input { width: 5.5em; min-height: 38px; padding: 4px 10px; font: inherit; border: 1px solid #c9c0c3; border-radius: 8px; background: #fff; }
+  .choice { display: inline-flex; align-items: center; gap: 6px; margin-right: 12px; cursor: pointer; }
+  .choice input { width: 18px; height: 18px; accent-color: var(--primary); }
+
+  .choice { white-space: nowrap; }
+  .url-input { flex: 1 1 100%; min-height: 38px; padding: 4px 10px; font: 0.8rem ui-monospace, Menlo, Consolas, monospace; border: 1px solid #c9c0c3; border-radius: 8px; background: #fff; }
+  .wins-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px 16px; width: 100%; }
+  .wins-grid label { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 0.9rem; }
+  .wins-grid .sub { display: block; color: var(--muted); font-size: 0.72rem; }
+
+  textarea {
+    width: 100%; min-height: 220px; padding: 12px; resize: vertical;
+    font: 0.85rem/1.6 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    border: 1px solid #c9c0c3; border-radius: 8px; background: #fff; color: var(--ink);
+  }
+
+  .buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  button {
+    min-height: 40px; padding: 8px 18px; font: inherit; font-weight: bold;
+    color: #fff; background: var(--primary); border: 0; border-radius: 8px; cursor: pointer;
+  }
+  button:hover { background: #a54c52; }
+  button.secondary { color: var(--primary); background: #fff; border: 1px solid var(--primary); }
+  button.secondary:hover { background: #fbeff0; }
+
+  .status { margin-top: 8px; min-height: 1.4em; font-size: 0.85rem; color: var(--muted); }
+  .status.is-ok { color: #1b7a3d; }
+  .status.is-warn { color: #b3261e; }
+
+  .steps { margin: 0; padding-left: 1.4em; line-height: 1.9; font-size: 0.92rem; }
+  .steps li + li { margin-top: 4px; }
+  .steps code, .path {
+    padding: 1px 6px; background: #fff; border: 1px solid var(--line);
+    border-radius: 5px; font-size: 0.85em;
+  }
+  .note { margin-top: 10px; color: var(--muted); font-size: 0.8rem; line-height: 1.7; }
+  .published { font-size: 0.88rem; line-height: 1.8; }
+  .published b { color: var(--primary); }
+
+  .none-label { color: var(--muted); font-weight: bold; padding: 0 12px; }
+  .wins-grid label[hidden] { display: none; }
+
+  .bk-court { margin-top: 14px; }
+  .bk-court:first-of-type { margin-top: 0; }
+  .bk-title { font-weight: bold; margin-bottom: 6px; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; }
+  .bk-title small { color: var(--muted); font-weight: normal; font-size: 0.78rem; }
+  .bk-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+  .bk-group { border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 6px; }
+  .bk-group-label { font-size: 0.68rem; color: var(--muted); margin-bottom: 4px; }
+  .bk-badge { display: inline-block; justify-self: start; padding: 0 8px; border-radius: 999px; font-size: 0.66rem; font-weight: bold; line-height: 1.7; color: var(--primary); background: #fbeff0; border: 1px solid var(--primary); }
+  .bk-badge.is-gray { color: var(--muted); background: #f1eeef; border-color: #c9c0c3; }
+  .bk-pair { display: grid; gap: 3px; padding: 4px 0; }
+  .bk-pair + .bk-pair { border-top: 1px dashed var(--line); }
+  .bk-chip {
+    min-height: 34px; padding: 4px 8px; border: 1px solid #c9c0c3; border-radius: 6px;
+    background: #fff; font-size: 0.78rem; line-height: 1.3; cursor: grab; user-select: none;
+    display: flex; flex-direction: column; justify-content: center; text-align: left; font-weight: normal; color: var(--ink);
+  }
+  .bk-chip:hover { background: #fbeff0; }
+  .bk-chip small { color: var(--muted); font-size: 0.66rem; }
+  .bk-chip.is-empty { color: var(--muted); background: #f1eeef; border-style: dashed; }
+  .bk-chip.is-selected { outline: 3px solid var(--primary); background: #fbeff0; }
+  .bk-chip.is-over { outline: 3px dashed var(--primary); }
+  .bk-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .bk-warn { color: #b3261e; font-size: 0.8rem; margin-top: 6px; line-height: 1.6; }
+  .bk-login { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .bk-login input { min-height: 38px; padding: 4px 10px; font: inherit; border: 1px solid #c9c0c3; border-radius: 8px; }
+
+  /* 配置換え: 枠ごとの鍵(拘束)とシャッフル */
+  .bk-slotwrap { position: relative; }
+  .bk-slotwrap .bk-chip { width: 100%; padding-right: 34px; }
+  .bk-lock { position: absolute; top: 4px; right: 4px; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; min-height: 0; line-height: 1; color: #a89fa3; background: transparent; border: 0; border-radius: 6px; cursor: pointer; }
+  .bk-lock:hover { color: var(--primary); background: #f1eeef; }
+  .bk-lock.is-locked { color: var(--primary); }
+  .bk-chip.is-locked { border-color: var(--primary); background: #f6ebec; }

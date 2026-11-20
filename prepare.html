@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>更新準備 - 立命杯2026</title>
+  <script src="settings.js?v=20261120"></script>
+  <link rel="stylesheet" href="admin-pages.css?v=20261124">
+</head>
+<body>
+  <a href="index.html" target="_top" class="back-button">← 戻る</a>
+  <script>
+    if (window.self !== window.top) {
+      document.documentElement.classList.add("is-embedded");
+    }
+  </script>
+
+  <div id="gate" class="gate">
+    <form id="gate-form" class="gate-box">
+      <h2>管理者ログイン</h2>
+      <p class="note" style="margin:0 0 8px">この画面は管理者用です。開くたびにパスワードが必要です。</p>
+      <label id="gate-url-row" hidden>APIのURL(settings.txt に未設定のため入力)
+        <input type="text" id="gate-url" class="url-input" placeholder="https://script.google.com/macros/s/…/exec" spellcheck="false">
+      </label>
+      <label>パスワード
+        <input type="password" id="gate-password" autocomplete="off" required>
+      </label>
+      <button type="submit" id="gate-button">ログイン</button>
+      <p id="gate-error" class="bk-warn" role="alert"></p>
+    </form>
+  </div>
+
+  <main class="page" id="main" hidden>
+    <h1>更新準備</h1>
+    <p class="lead">
+      来年度(または今年度の直し)の設定を作る画面です。下の項目を入れると、<span class="path">documents/settings.txt</span> に貼り付ける文章ができます。
+      いま公開されている設定や、公開・表示の切り替え、対戦の並びは「大会設定」の画面にあります。
+    </p>
+
+    <h2>来年度の設定を作る</h2>
+    <p class="note" style="margin-top:0">
+      この欄は<b>保存されません</b>。文章を作って、<span class="path">documents/settings.txt</span> に貼り付けると全ページに反映されます(通信はAPIを使わないので、アクセスが増えても影響しません)。
+      今年度の設定だけを直すときも、ここで作ります。
+    </p>
+    <div class="card">
+      <div class="field">
+        <label for="date-y">開催日</label>
+        <span class="date-parts" id="event-date">
+          <input type="number" id="date-y" min="2000" max="2100" inputmode="numeric" aria-label="年"> 年
+          <select id="date-m" aria-label="月"></select> 月
+          <select id="date-d" aria-label="日"></select> 日
+        </span>
+        <span class="hint">index.html の日付表示(「開催日」の目印をつけた場所)に使われます。</span>
+      </div>
+
+      <div class="field">
+        <label for="api-url">APIのURL</label>
+        <input type="text" id="api-url" class="url-input" placeholder="https://script.google.com/macros/s/…/exec" spellcheck="false">
+        <span class="hint">Apps Script を「新しいデプロイ」にして URL が変わったときだけ書き換えます(全ページ共通の1つです)。</span>
+      </div>
+
+      <div class="field">
+        <label for="entry-form-url">応募フォームのURL</label>
+        <input type="text" id="entry-form-url" class="url-input" placeholder="https://forms.gle/…" spellcheck="false">
+        <span class="hint">「応募」を表示するとき、index.html のボタンが開く Google フォームのURLです。</span>
+      </div>
+
+      <div class="field">
+        <span class="label">コート数</span>
+        <span>
+          <label class="choice"><input type="radio" name="courts" value="2">2コート(A・B)</label>
+          <label class="choice"><input type="radio" name="courts" value="3">3コート(A・B・C)</label>
+        </span>
+        <span class="hint">2コートにすると、Cコートは「次の試合」「呼び出し」「トーナメント表」から消えます。最終戦は決勝・3位決定戦になります。スプレッドシート側のリーグ表も2コート分にしてください。</span>
+      </div>
+
+      <div class="field">
+        <span class="label">何本先取か</span>
+        <div class="wins-grid" id="wins-grid"></div>
+        <span class="hint">5回戦まで、回戦ごとに決めます(何試合目、のような細かい指定はできません)。人数が少なくて使わない回戦も、書いておいて構いません(使わない回戦は、自動で無視されます)。「最終戦」は最終決戦・決勝・3位決定戦です。</span>
+      </div>
+    </div>
+
+    <h3>作られた設定の文章</h3>
+    <textarea id="output" readonly spellcheck="false" aria-label="作られた設定の文章"></textarea>
+    <div class="buttons">
+      <button type="button" id="copy-button">コピーする</button>
+      <button type="button" id="download-button" class="secondary">settings.txt としてダウンロード</button>
+    </div>
+    <p class="status" id="status" role="status"></p>
+
+    <h3>反映のしかた(サーバーにアップロード)</h3>
+    <div class="card">
+      <ol class="steps">
+        <li>上の「コピーする」を押す(またはダウンロードする)。</li>
+        <li>
+          <b>新しい年度にするとき</b>: 前の年のサイトのフォルダを<b>丸ごと複製</b>し、フォルダ名に入っている年を新しい年に変える(例: 名前の「2026」→「2027」)。<br>
+          <b>同じ年の設定だけ直すとき</b>: 複製はせず、いまのフォルダをそのまま使う。
+        </li>
+        <li>複製(または手元)のフォルダの <span class="path">documents</span> フォルダにある <span class="path">settings.txt</span> を開き、中身を<b>すべて消して貼り付け</b>て保存する(ダウンロードしたファイルは、同じ名前で上書き)。</li>
+        <li>サークルのサーバーに、そのフォルダを<b>フォルダごとアップロード</b>する。設定だけ直したときは、<span class="path">documents/settings.txt</span> だけを上書きでも構いません。</li>
+        <li>サイトを開き直す(変わらないときは、ブラウザの再読み込み。Ctrl+Shift+R)。</li>
+        <li>この画面を開き直して、一番上の「今年度の設定」が作った内容と同じになっていれば完了。</li>
+      </ol>
+      <p class="note">
+        カンマ(,)や引用符(")が消えると読み込めなくなり、初期値で動きます。うまくいかないときは、もう一度コピーして貼り直してください。
+        設定ファイルはどのページからも自動で読まれるので、HTMLを書き換える必要はありません。
+        フォルダ名を変えるとサイトのURLも変わります。前の年のフォルダは、そのまま残しておけば前の年のサイトとして見られます。
+      </p>
+    </div>
+
+  </main>
+
+  <script src="admin-common.js?v=20261124"></script>
+  <script>
+    var ROUND_ITEMS = RRST_ROUND_ITEMS;
+    var escapeHtml = RRST_escapeHtml;
+
+    // 開催日: 年・月・日の3つの欄(ブラウザの日付欄は、端末の言語によって「月/日/年」の欧米順になるため使わない)。
+    // dateInput.value は "2026-12-05" の形で読み書きでき、変わると input イベントが飛ぶ
+    var dateInput = (function () {
+      var y = document.getElementById("date-y"), m = document.getElementById("date-m"), d = document.getElementById("date-d");
+      var listeners = [];
+      for (var i = 1; i <= 12; i++) m.insertAdjacentHTML("beforeend", '<option value="' + i + '">' + i + "</option>");
+      for (var j = 1; j <= 31; j++) d.insertAdjacentHTML("beforeend", '<option value="' + j + '">' + j + "</option>");
+      function pad(n) { return (n < 10 ? "0" : "") + n; }
+      function fire() { listeners.forEach(function (fn) { fn(); }); }
+      [y, m, d].forEach(function (el) { el.addEventListener("input", fire); el.addEventListener("change", fire); });
+      return {
+        get value() {
+          var yy = Number(y.value), mm = Number(m.value), dd = Number(d.value);
+          if (!(yy >= 2000 && yy <= 2100) || !mm || !dd) return "";
+          var date = new Date(yy, mm - 1, dd);
+          if (date.getMonth() !== mm - 1) return ""; // 2月30日などは無効
+          return yy + "-" + pad(mm) + "-" + pad(dd);
+        },
+        set value(iso) {
+          var p = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || "");
+          if (!p) return;
+          y.value = p[1]; m.value = String(Number(p[2])); d.value = String(Number(p[3]));
+        },
+        addEventListener: function (type, fn) { listeners.push(fn); }
+      };
+    })();
+    var winsGrid = document.getElementById("wins-grid");
+    var output = document.getElementById("output");
+    var statusEl = document.getElementById("status");
+    var publishedText = ""; // いま公開されている設定の文章(作った文章と比べて、変更があるかを出す)
+
+    function buildWinsGrid() {
+      winsGrid.innerHTML = ROUND_ITEMS.map(function (item) {
+        return '<label data-label="' + escapeHtml(item.key) + '"><span>' + escapeHtml(item.key) +
+          (item.sub ? '<span class="sub">' + escapeHtml(item.sub) + '</span>' : '') +
+          '</span><select data-round="' + escapeHtml(item.key) + '">' +
+          [1, 2, 3].map(function (n) { return '<option value="' + n + '">' + n + '本先取</option>'; }).join("") +
+          '</select></label>';
+      }).join("");
+    }
+
+    function readForm() {
+      var courtsInput = document.querySelector('input[name="courts"]:checked');
+      var wins = {};
+      winsGrid.querySelectorAll("select").forEach(function (select) {
+        wins[select.dataset.round] = Number(select.value);
+      });
+      return {
+        eventDate: dateInput.value,
+        courts: courtsInput ? Number(courtsInput.value) : 3,
+        apiUrl: document.getElementById("api-url").value.trim(),
+        entryFormUrl: document.getElementById("entry-form-url").value.trim(),
+        wins: wins
+      };
+    }
+
+    function writeForm(settings) {
+      dateInput.value = settings.eventDate;
+      document.getElementById("api-url").value = settings.apiUrl || "";
+      document.getElementById("entry-form-url").value = settings.entryFormUrl || "";
+      var radio = document.querySelector('input[name="courts"][value="' + settings.courts + '"]');
+      if (radio) radio.checked = true;
+      winsGrid.querySelectorAll("select").forEach(function (select) {
+        var value = settings.wins[select.dataset.round];
+        if (!(value >= 1)) return; // 0(なし)のときは選択肢をそのままにする
+        // 4本先取以上など、このフォームにない値が入っていたら選択肢に足す
+        if (!select.querySelector('option[value="' + value + '"]')) {
+          select.insertAdjacentHTML("beforeend", '<option value="' + value + '">' + value + '本先取</option>');
+        }
+        select.value = String(value);
+      });
+    }
+
+    function generateText(settings) {
+      var lines = [
+        "{",
+        '  "eventDate": ' + JSON.stringify(settings.eventDate) + ",",
+        '  "courts": ' + settings.courts + ",",
+        '  "apiUrl": ' + JSON.stringify(settings.apiUrl) + ",",
+        '  "entryFormUrl": ' + JSON.stringify(settings.entryFormUrl) + ",",
+        '  "wins": {'
+      ];
+      var keys = ROUND_ITEMS.map(function (item) { return item.key; });
+      keys.forEach(function (key, index) {
+        lines.push("    " + JSON.stringify(key) + ": " + settings.wins[key] + (index < keys.length - 1 ? "," : ""));
+      });
+      lines.push("  }", "}");
+      return lines.join("\n") + "\n";
+    }
+
+    function setStatus(text, kind) {
+      statusEl.textContent = text;
+      statusEl.className = "status" + (kind ? " is-" + kind : "");
+    }
+
+    function refreshOutput() {
+      var settings = readForm();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(settings.eventDate)) {
+        output.value = "";
+        setStatus("開催日を入れてください。", "warn");
+        return;
+      }
+      var text = generateText(settings);
+      output.value = text;
+      if (publishedText && text.trim() === publishedText.trim()) {
+        setStatus("いま公開されている設定と同じです(変更なし)。", "ok");
+      } else {
+        setStatus(publishedText ? "いま公開されている設定から変わっています。コピーして貼り付けてください。" : "", "");
+      }
+    }
+
+    document.getElementById("copy-button").addEventListener("click", function () {
+      if (!output.value) return;
+      var done = function () { setStatus("コピーしました。settings.txt に貼り付けてください。", "ok"); };
+      var fallback = function () {
+        output.select();
+        try { document.execCommand("copy"); done(); }
+        catch (e) { setStatus("コピーできませんでした。文章を選択して、手でコピーしてください。", "warn"); }
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(output.value).then(done, fallback);
+      } else {
+        fallback();
+      }
+    });
+
+    document.getElementById("download-button").addEventListener("click", function () {
+      if (!output.value) return;
+      var blob = new Blob([output.value], { type: "text/plain;charset=utf-8" });
+      var link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "settings.txt";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(function () { URL.revokeObjectURL(link.href); }, 1000);
+      setStatus("settings.txt をダウンロードしました。documents フォルダに同じ名前でアップロードしてください。", "ok");
+    });
+
+    dateInput.addEventListener("input", refreshOutput);
+    document.querySelectorAll('input[name="courts"]').forEach(function (radio) {
+      radio.addEventListener("change", function () {
+        refreshOutput();
+      });
+    });
+    winsGrid.addEventListener("change", refreshOutput);
+    document.getElementById("api-url").addEventListener("input", refreshOutput);
+    document.getElementById("entry-form-url").addEventListener("input", refreshOutput);
+
+    buildWinsGrid();
+    writeForm(window.RRST_DEFAULT_SETTINGS);
+    refreshOutput();
+
+    // 公開中の設定を読み、フォームの初期値にする(ファイルが無いときは初期値のまま)
+    window.RRST_SETTINGS_READY.then(function (settings) {
+      writeForm(settings);
+      if (window.RRST_SETTINGS_LOADED) {
+        publishedText = generateText(settings);
+      }
+      refreshOutput();
+    });
+
+    // ログイン画面: パスワードが合うまで、この画面を出さない。
+    // settings.txt にAPIのURLが無いときは、ログインで入れたURLを設定の欄にも入れる
+    RRST_adminGate(function (url) {
+      if (!window.RRST_SETTINGS.apiUrl) {
+        document.getElementById("api-url").value = url;
+        refreshOutput();
+      }
+    });
+  </script>
+</body>
+</html>

@@ -48,6 +48,11 @@
     .entries-table tbody tr.grp-start:not(:first-child) td{border-top:2px solid #b8aab0}
     .entries-table td.blk{border-right:1px solid #d4cdd0}
     .entries-table .narrow{width:1%;white-space:nowrap;text-align:center}
+    /* トーナメント進出者: 行を薄い黄色にして、機体番号の前にオレンジの二重丸をつける */
+    .entries-table tbody tr.qualified td{background:#fff8d6}
+    .qual-mark{position:relative;display:inline-block;box-sizing:border-box;width:20px;height:20px;margin-right:.4em;border:2px solid #ee7d00;border-radius:50%;vertical-align:middle;position:relative;top:-.05em}.qual-mark::after{content:'';position:absolute;box-sizing:border-box;inset:3px;border:2px solid #ee7d00;border-radius:50%}
+    .entries-legend{margin:0 0 6px;font-size:.8rem;color:#555}
+    .entries-legend .qual-mark{margin:0 .35em 0 0}
     @media (min-width:768px){
       .entries-frame{overflow-x:hidden}
       .entries-table{width:100%}
@@ -191,6 +196,8 @@
     items.forEach((it) => {
       const tr = document.createElement("tr");
       if (it.groupStart) tr.className = "grp-start";
+      tr.dataset.num = it.num;          // トーナメント進出者の目印をつけるときに使う
+      tr.dataset.robot = it.robot;
       if (showCourt) tr.appendChild(td("narrow", it.courtShown));
       if (showBlock) tr.appendChild(td("narrow blk", it.blockShown));
       if (showNum) tr.appendChild(td("num narrow", it.num));
@@ -271,6 +278,42 @@
     frame.appendChild(table);
     root.appendChild(frame);
     section.hidden = false;
+    markQualifiers(table, frame);
+  }
+
+  // トーナメント進出者に目印をつける。進出者の一覧はAPI(mode=qualifiers。シートの出場者の列だけを読む軽いもの)から
+  // 取るので、表は先に出しておき、取れたら後から色をつける。取れなかったとき(APIが未設定など)は何もしない。
+  function markQualifiers(table, frame) {
+    Promise.resolve(window.RRST_SETTINGS_READY).then(() => {
+      const api = window.RRST_SETTINGS && window.RRST_SETTINGS.apiUrl;
+      if (!api) return null;
+      return fetch(api + (api.indexOf("?") >= 0 ? "&" : "?") + "mode=qualifiers").then((res) => res.json());
+    }).then((data) => {
+      if (!data || !Array.isArray(data.entrants)) return;
+      const numbers = new Set(data.entrants.map((e) => String(e.number || "").trim()).filter(Boolean));
+      const names = new Set(data.entrants.map((e) => String(e.name || "").trim()).filter(Boolean));
+      let count = 0;
+      table.querySelectorAll("tbody tr").forEach((tr) => {
+        const num = (tr.dataset.num || "").trim();
+        const hit = (num && numbers.has(num)) || (!num && names.has((tr.dataset.robot || "").trim()));
+        if (!hit) return;
+        count += 1;
+        tr.classList.add("qualified");
+        const numTd = tr.querySelector("td.num");
+        if (numTd) {
+          const mark = document.createElement("span");
+          mark.className = "qual-mark";
+          mark.title = "トーナメント進出";
+          numTd.insertBefore(mark, numTd.firstChild);
+        }
+      });
+      if (count && frame.parentNode) {
+        const legend = document.createElement("p");
+        legend.className = "entries-legend";
+        legend.innerHTML = '<span class="qual-mark"></span>= トーナメント進出';
+        frame.parentNode.insertBefore(legend, frame);
+      }
+    }).catch((err) => console.warn("トーナメント進出者を読めませんでした(色はつきません):", err));
   }
 
   fetch(CSV_PATH, { cache: "no-cache" }) // 更新したら次回表示で反映(変更なしなら再ダウンロードしない)
