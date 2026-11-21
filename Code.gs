@@ -125,6 +125,10 @@ function doGet(event) {
     return getQualifiers(Boolean(event.parameter && event.parameter.alive === "1"));
   }
 
+  if (mode === "banners") {
+    return getBannerMatches(event);
+  }
+
   if (mode === "matchlog") {
     return getMatchLog(event);
   }
@@ -682,6 +686,43 @@ function getCurrentMatchData() {
   } catch (ignore) { /* キャッシュできなくても動く */ }
 
   return jsonOutput(payload);
+}
+
+// バナー画像づくり用: そのコートの全試合(1試合目から最後まで)の対戦カードを返す。
+// 次の試合の名前を伏せる設定(namesVisible)に関係なく本当の名前を返すので、BANNER_TOKEN が合うときだけ。
+// 1回呼ぶだけで全部返し、バナーページは自動更新しない(呼ぶのは、ページを開いたとき・開き直したときだけ)。
+function getBannerMatches(event) {
+  const params = (event && event.parameter) || {};
+  if (params.token !== BANNER_TOKEN) return jsonOutput({ error: "Unauthorized" });
+  const court = normalizeLeague(params.court);
+
+  const dataSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("機体一覧");
+  if (!dataSheet) return jsonOutput({ error: "Missing sheet: 機体一覧" });
+
+  const values = dataSheet.getDataRange().getValues();
+  const matchColumns = findMatchColumns(values[0] || []);
+  const byNumber = {}; // 試合番号 => そのコートでその試合に出る機体の行
+  values.slice(1).forEach(row => {
+    if (String(row[3]).trim() !== court) return;
+    matchColumns.forEach(column => {
+      const cell = String(row[column] === undefined ? "" : row[column]).trim();
+      const number = Number(cell);
+      if (cell === "" || !(number >= 1)) return;
+      (byNumber[number] = byNumber[number] || []).push(row);
+    });
+  });
+
+  const team = row => (row ? { num: String(row[0]), name: String(row[1]) } : { num: "", name: "未設定" });
+  const matches = Object.keys(byNumber).map(Number).sort((a, b) => a - b).map(number => {
+    const rows = byNumber[number].sort((left, right) => left[0] - right[0]);
+    return {
+      num: number,
+      block: Math.ceil(number / MATCHES_PER_BLOCK),
+      red: team(rows[0]),
+      blue: team(rows[1])
+    };
+  });
+  return jsonOutput({ court, matches });
 }
 
 // 「機体一覧」の見出し行から、試合番号の列の位置を返す(0始まり、左から最大 MAX_MATCHES_PER_ROBOT 個)。

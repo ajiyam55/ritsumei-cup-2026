@@ -1,7 +1,7 @@
 {
   "eventDate": "2026-12-05",
   "courts": 3,
-  "apiUrl": "https://script.google.com/macros/s/AKfycbwEO0_tZoE3G7lT1_47O0pYZGDcvy-VBD4_M1rnCa-lWyR-JuePomy9Ersy1ZlgUhG_LA/exec",
+  "apiUrl": "https://script.google.com/macros/s/AKfycbyWN0ZXmR1uTOCJVZ0s_p3wan1uEJfy8-JVFKy9CgZxmBvjP3PPmfMEleJy3EkU8K3e9w/exec",
   "entryFormUrl": "https://forms.gle/4FYpiQj6hGrap2pq8",
   "wins": {
     "1回戦": 1,

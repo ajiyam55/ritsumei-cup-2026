@@ -161,15 +161,6 @@ window.addEventListener("DOMContentLoaded", () => {
       startRefreshCooldown(allRefreshButtons);
     });
   });
-
-  // トーナメント表の自動リロード
-  const tournamentIframe = document.getElementById('tournament-iframe');
-  if (tournamentIframe) {
-    setInterval(() => {
-      const currentSrc = tournamentIframe.src;
-      tournamentIframe.src = currentSrc + '&_=' + Date.now(); // キャッシュ回避
-    }, 10000); // 10秒ごとに更新
-  }
 });
 
 // ハンバーガーメニュー
@@ -189,12 +180,5 @@ document.addEventListener('DOMContentLoaded', function() {
     link.addEventListener('click', function() {
       header.classList.remove('nav-open');
     });
-  });
-
-    // メニューの外(ページ下部など)をタップしたら閉じる
-  document.addEventListener('click', function(e) {
-    if (header && header.classList.contains('nav-open') && !header.contains(e.target)) {
-      header.classList.remove('nav-open');
-    }
   });
 });
