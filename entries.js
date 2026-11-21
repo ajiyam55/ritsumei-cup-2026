@@ -51,8 +51,8 @@
     /* トーナメント進出者: 行を薄い黄色にして、機体番号の前にオレンジの二重丸をつける */
     .entries-table tbody tr.qualified td{background:#fff8d6}
     .qual-mark{position:relative;display:inline-block;box-sizing:border-box;width:20px;height:20px;margin-right:.4em;border:2px solid #ee7d00;border-radius:50%;vertical-align:middle;position:relative;top:-.05em}.qual-mark::after{content:'';position:absolute;box-sizing:border-box;inset:3px;border:2px solid #ee7d00;border-radius:50%}
-    .entries-legend{margin:0 0 6px;font-size:.8rem;color:#555}
-    .entries-legend .qual-mark{margin:0 .35em 0 0}
+    .entries-legend{display:flex;align-items:center;margin:0 0 6px;font-size:.8rem;line-height:1.4;color:#555}
+    .entries-legend .qual-mark{flex:none;width:16px;height:16px;margin:0 .4em 0 0;top:0;vertical-align:baseline}.entries-legend .qual-mark::after{inset:2px}
     @media (min-width:768px){
       .entries-frame{overflow-x:hidden}
       .entries-table{width:100%}
@@ -284,10 +284,13 @@
   // トーナメント進出者に目印をつける。進出者の一覧はAPI(mode=qualifiers。シートの出場者の列だけを読む軽いもの)から
   // 取るので、表は先に出しておき、取れたら後から色をつける。取れなかったとき(APIが未設定など)は何もしない。
   function markQualifiers(table, frame) {
+    const LEGEND_TEXT = window.RRST_SETTINGS.mode === "tournamentOnly" ? "勝ち残り" : "トーナメント進出";
     Promise.resolve(window.RRST_SETTINGS_READY).then(() => {
       const api = window.RRST_SETTINGS && window.RRST_SETTINGS.apiUrl;
       if (!api) return null;
-      return fetch(api + (api.indexOf("?") >= 0 ? "&" : "?") + "mode=qualifiers").then((res) => res.json());
+      // リーグ無しの年(mode: tournamentOnly)は全員が出場者なので、「負けていない人」だけに色をつける
+      const aliveOnly = window.RRST_SETTINGS.mode === "tournamentOnly";
+      return fetch(api + (api.indexOf("?") >= 0 ? "&" : "?") + "mode=qualifiers" + (aliveOnly ? "&alive=1" : "")).then((res) => res.json());
     }).then((data) => {
       if (!data || !Array.isArray(data.entrants)) return;
       const numbers = new Set(data.entrants.map((e) => String(e.number || "").trim()).filter(Boolean));
@@ -303,14 +306,14 @@
         if (numTd) {
           const mark = document.createElement("span");
           mark.className = "qual-mark";
-          mark.title = "トーナメント進出";
+          mark.title = LEGEND_TEXT;
           numTd.insertBefore(mark, numTd.firstChild);
         }
       });
       if (count && frame.parentNode) {
         const legend = document.createElement("p");
         legend.className = "entries-legend";
-        legend.innerHTML = '<span class="qual-mark"></span>= トーナメント進出';
+        legend.innerHTML = '<span class="qual-mark"></span>= ' + LEGEND_TEXT;
         frame.parentNode.insertBefore(legend, frame);
       }
     }).catch((err) => console.warn("トーナメント進出者を読めませんでした(色はつきません):", err));

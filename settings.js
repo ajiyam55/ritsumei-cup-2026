@@ -12,6 +12,7 @@
   var DEFAULTS = {
     eventDate: "2026-12-05", // 開催日(YYYY-MM-DD)
     courts: 3,               // コート数(2 または 3)
+    mode: "league",          // "league" = リーグ戦→トーナメント / "tournamentOnly" = リーグ無し(出場者を手で決めたトーナメントだけ)
     apiUrl: "",              // API(Apps Script のウェブアプリURL。次の試合・呼び出し・トーナメント表など全部これ1つ)
     entryFormUrl: "",        // 応募フォーム(Googleフォーム)のURL
     wins: { "1回戦": 1, "2回戦": 2, "3回戦": 2, "4回戦": 2, "5回戦": 2, "準々決勝": 2, "準決勝": 2, "最終戦": 2 }
@@ -29,6 +30,7 @@
     }
     if (typeof raw.apiUrl === "string" && /^https:\/\/script\.google\.com\/\S+$/.test(raw.apiUrl.trim())) out.apiUrl = raw.apiUrl.trim();
     if (typeof raw.entryFormUrl === "string" && /^https?:\/\/\S+$/.test(raw.entryFormUrl.trim())) out.entryFormUrl = raw.entryFormUrl.trim();
+    if (raw.mode === "league" || raw.mode === "tournamentOnly") out.mode = raw.mode;
     var courts = Number(raw.courts);
     if (courts === 2 || courts === 3) out.courts = courts;
     if (raw.wins && typeof raw.wins === "object") {
@@ -75,6 +77,11 @@
     for (var h = 0; h < links.length; h++) {
       var url = settings[links[h].getAttribute("data-href-setting")];
       if (url) links[h].setAttribute("href", url);
+    }
+    // data-show-mode="league" の要素は、リーグ戦ありの年だけ表示(tournamentOnly の年は隠す)。"tournamentOnly" ならその逆
+    var modeNodes = document.querySelectorAll("[data-show-mode]");
+    for (var k = 0; k < modeNodes.length; k++) {
+      if (modeNodes[k].getAttribute("data-show-mode") !== settings.mode) modeNodes[k].style.display = "none";
     }
     var nodes = document.querySelectorAll("[data-setting]");
     for (var i = 0; i < nodes.length; i++) {

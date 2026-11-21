@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>更新準備 - 立命杯2026</title>
-  <script src="settings.js?v=20261120"></script>
+  <script src="settings.js?v=20261125"></script>
   <link rel="stylesheet" href="admin-pages.css?v=20261124">
 </head>
 <body>
@@ -37,6 +37,19 @@
       いま公開されている設定や、公開・表示の切り替え、対戦の並びは「大会設定」の画面にあります。
     </p>
 
+    <h2>はじめに(引き継ぎ)</h2>
+    <div class="card">
+      <ol class="steps">
+        <li>サークルのサーバーにある<b>前の年のサイトのフォルダ</b>を、まるごとダウンロードする。</li>
+        <li>ダウンロードしたフォルダの<b>名前を新しい年に変える</b>(例: 「2026」→「2027」)。</li>
+        <li><b>VSCode</b> でそのフォルダを開く(VSCode の「ファイル → フォルダーを開く」)。</li>
+        <li>下の「来年度の設定を作る」で文章を作り、VSCode で <span class="path">documents/settings.txt</span> に貼り付けて保存する。</li>
+        <li>Documentsフォルダ内の座席表を更新する。</li>
+        <li>必要に応じて、index.htmlの企業を変更し、imageフォルダ内も更新する。</li>
+        <li>フォルダごとサーバーにアップロードして完成。くわしい手順は一番下の「反映のしかた」にあります。</li>
+      </ol>
+    </div>
+
     <h2>来年度の設定を作る</h2>
     <p class="note" style="margin-top:0">
       この欄は<b>保存されません</b>。文章を作って、<span class="path">documents/settings.txt</span> に貼り付けると全ページに反映されます(通信はAPIを使わないので、アクセスが増えても影響しません)。
@@ -63,6 +76,19 @@
         <label for="entry-form-url">応募フォームのURL</label>
         <input type="text" id="entry-form-url" class="url-input" placeholder="https://forms.gle/…" spellcheck="false">
         <span class="hint">「応募」を表示するとき、index.html のボタンが開く Google フォームのURLです。</span>
+      </div>
+
+      <div class="field">
+        <span class="label">形式</span>
+        <span>
+          <label class="choice"><input type="radio" name="mode" value="league">リーグ戦 → トーナメント</label>
+          <label class="choice"><input type="radio" name="mode" value="tournamentOnly">リーグ無し(トーナメントのみ)</label>
+        </span>
+        <span class="hint">「リーグ無し」は、出場者を「トーナメント出場者」シートに手で入れる年用です。機体一覧の色づけが「トーナメント進出」から「勝ち残り(負けていない人)」に変わります。</span>
+        <span class="hint mode-note" id="mode-note" hidden>
+          スプレッドシートの<b>リーグA・B・Cのシートは消して</b>ください(「トーナメント出場者」シートがあればそちらが優先されますが、古いデータが残ると紛らわしいため)。
+          消したあと、「機体一覧」などの自動集計のセルが <code>#REF!</code> などのエラーにならないか確認してください。
+        </span>
       </div>
 
       <div class="field">
@@ -163,8 +189,10 @@
       winsGrid.querySelectorAll("select").forEach(function (select) {
         wins[select.dataset.round] = Number(select.value);
       });
+      var modeInput = document.querySelector('input[name="mode"]:checked');
       return {
         eventDate: dateInput.value,
+        mode: modeInput ? modeInput.value : "league",
         courts: courtsInput ? Number(courtsInput.value) : 3,
         apiUrl: document.getElementById("api-url").value.trim(),
         entryFormUrl: document.getElementById("entry-form-url").value.trim(),
@@ -178,6 +206,9 @@
       document.getElementById("entry-form-url").value = settings.entryFormUrl || "";
       var radio = document.querySelector('input[name="courts"][value="' + settings.courts + '"]');
       if (radio) radio.checked = true;
+      var modeRadio = document.querySelector('input[name="mode"][value="' + settings.mode + '"]');
+      if (modeRadio) modeRadio.checked = true;
+      document.getElementById("mode-note").hidden = settings.mode !== "tournamentOnly";
       winsGrid.querySelectorAll("select").forEach(function (select) {
         var value = settings.wins[select.dataset.round];
         if (!(value >= 1)) return; // 0(なし)のときは選択肢をそのままにする
@@ -193,6 +224,7 @@
       var lines = [
         "{",
         '  "eventDate": ' + JSON.stringify(settings.eventDate) + ",",
+        '  "mode": ' + JSON.stringify(settings.mode) + ",",
         '  "courts": ' + settings.courts + ",",
         '  "apiUrl": ' + JSON.stringify(settings.apiUrl) + ",",
         '  "entryFormUrl": ' + JSON.stringify(settings.entryFormUrl) + ",",
@@ -258,6 +290,12 @@
     dateInput.addEventListener("input", refreshOutput);
     document.querySelectorAll('input[name="courts"]').forEach(function (radio) {
       radio.addEventListener("change", function () {
+        refreshOutput();
+      });
+    });
+    document.querySelectorAll('input[name="mode"]').forEach(function (radio) {
+      radio.addEventListener("change", function () {
+        document.getElementById("mode-note").hidden = readForm().mode !== "tournamentOnly";
         refreshOutput();
       });
     });

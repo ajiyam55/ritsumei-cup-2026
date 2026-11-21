@@ -122,7 +122,7 @@ function doGet(event) {
   }
 
   if (mode === "qualifiers") {
-    return getQualifiers();
+    return getQualifiers(Boolean(event.parameter && event.parameter.alive === "1"));
   }
 
   if (mode === "matchlog") {
@@ -264,8 +264,12 @@ function getTournamentData(event) {
 const QUALIFIERS_CACHE_KEY = "qualifiers";
 const QUALIFIERS_CACHE_SECONDS = 20;
 
-function getQualifiers() {
-  const cached = CacheService.getScriptCache().get(QUALIFIERS_CACHE_KEY);
+// aliveOnly=false: 「トーナメント出場者」に載っている人(=リーグ勝者)を返す。
+// aliveOnly=true : 負けていない人だけを返す(リーグ無し・トーナメントだけの年に、勝ち残りに色をつける用)。
+//                  「負け」= 勝敗がついた試合で勝たなかった側。まだ試合をしていない人は残っている扱い。
+function getQualifiers(aliveOnly) {
+  const cacheKey = aliveOnly ? QUALIFIERS_CACHE_KEY + "_alive" : QUALIFIERS_CACHE_KEY;
+  const cached = CacheService.getScriptCache().get(cacheKey);
   if (cached) {
     return ContentService.createTextOutput(cached).setMimeType(ContentService.MimeType.JSON);
   }
@@ -273,6 +277,25 @@ function getQualifiers() {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   const entrants = [];
   Object.keys(LEAGUE_SHEETS).forEach(league => {
+    if (aliveOnly) {
+      const result = buildTournamentPayload(spreadsheet, league);
+      if (!result || result.error) return;
+      const lost = {};
+      const key = team => String(team.number || "") || team.name;
+      result.matches.forEach(match => {
+        if (!match.winner) return;
+        [match.red, match.blue].forEach(team => { if (team && !team.winner) lost[key(team)] = true; });
+      });
+      const seen = {};
+      result.matches.filter(match => match.round === 0).forEach(match => {
+        [match.red, match.blue].forEach(team => {
+          if (!team || team.pending || lost[key(team)] || seen[key(team)]) return;
+          seen[key(team)] = true;
+          entrants.push({ league, number: String(team.number || ""), name: team.name });
+        });
+      });
+      return;
+    }
     const blockCount = getBlockCountFromSource(spreadsheet, league);
     const source = readEntrantSheet(spreadsheet, league, LIMIT_ENTRANTS_BY_BLOCK_COUNT ? blockCount : null) ||
       readLeagueSheet(spreadsheet.getSheetByName(LEAGUE_SHEETS[league]), blockCount);
@@ -283,8 +306,8 @@ function getQualifiers() {
     });
   });
 
-  const payload = { generatedAt: Date.now(), entrants };
-  try { CacheService.getScriptCache().put(QUALIFIERS_CACHE_KEY, JSON.stringify(payload), QUALIFIERS_CACHE_SECONDS); } catch (ignore) { /* キャッシュできなくても動く */ }
+  const payload = { generatedAt: Date.now(), alive: Boolean(aliveOnly), entrants };
+  try { CacheService.getScriptCache().put(cacheKey, JSON.stringify(payload), QUALIFIERS_CACHE_SECONDS); } catch (ignore) { /* キャッシュできなくても動く */ }
   return jsonOutput(payload);
 }
 
