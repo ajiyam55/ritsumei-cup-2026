@@ -50,9 +50,9 @@
     .entries-table .narrow{width:1%;white-space:nowrap;text-align:center}
     /* トーナメント進出者: 行を薄い黄色にして、機体番号の前にオレンジの二重丸をつける */
     .entries-table tbody tr.qualified td{background:#fff8d6}
-    .qual-mark{position:relative;display:inline-block;box-sizing:border-box;width:20px;height:20px;margin-right:.4em;border:2px solid #ee7d00;border-radius:50%;vertical-align:middle;position:relative;top:-.05em}.qual-mark::after{content:'';position:absolute;box-sizing:border-box;inset:3px;border:2px solid #ee7d00;border-radius:50%}
+    .qual-mark{display:inline-block;box-sizing:border-box;width:14px;height:14px;margin-right:.5em;border:2px solid #ee7d00;border-radius:50%;background:transparent;vertical-align:middle;position:relative;top:-1px}
     .entries-legend{display:flex;align-items:center;margin:0 0 6px;font-size:.8rem;line-height:1.4;color:#555}
-    .entries-legend .qual-mark{flex:none;width:16px;height:16px;margin:0 .4em 0 0;top:0;vertical-align:baseline}.entries-legend .qual-mark::after{inset:2px}
+    .entries-legend .qual-mark{flex:none;top:0;margin:0 .4em 0 0}
     @media (min-width:768px){
       .entries-frame{overflow-x:hidden}
       .entries-table{width:100%}
@@ -284,7 +284,20 @@
   // トーナメント進出者に目印をつける。進出者の一覧はAPI(mode=qualifiers。シートの出場者の列だけを読む軽いもの)から
   // 取るので、表は先に出しておき、取れたら後から色をつける。取れなかったとき(APIが未設定など)は何もしない。
   function markQualifiers(table, frame) {
-    const LEGEND_TEXT = window.RRST_SETTINGS.mode === "tournamentOnly" ? "勝ち残り" : "トーナメント進出";
+    let LEGEND_TEXT = "トーナメント進出"; // リーグ無しの年は、設定の読み込み後に「勝ち残り」へ変わる
+    // 説明は、色がつく前(試合が始まる前)から出しておく
+    const legend = document.createElement("p");
+    legend.className = "entries-legend";
+    legend.innerHTML = '<span class="qual-mark"></span><span class="legend-text"></span>';
+    const legendText = legend.querySelector(".legend-text");
+    legendText.textContent = "= " + LEGEND_TEXT;
+    if (frame.parentNode) frame.parentNode.insertBefore(legend, frame);
+    Promise.resolve(window.RRST_SETTINGS_READY).then(() => {
+      if (window.RRST_SETTINGS.mode === "tournamentOnly") {
+        LEGEND_TEXT = "勝ち残り";
+        legendText.textContent = "= " + LEGEND_TEXT;
+      }
+    });
     Promise.resolve(window.RRST_SETTINGS_READY).then(() => {
       const api = window.RRST_SETTINGS && window.RRST_SETTINGS.apiUrl;
       if (!api) return null;
@@ -310,12 +323,6 @@
           numTd.insertBefore(mark, numTd.firstChild);
         }
       });
-      if (count && frame.parentNode) {
-        const legend = document.createElement("p");
-        legend.className = "entries-legend";
-        legend.innerHTML = '<span class="qual-mark"></span>= ' + LEGEND_TEXT;
-        frame.parentNode.insertBefore(legend, frame);
-      }
     }).catch((err) => console.warn("トーナメント進出者を読めませんでした(色はつきません):", err));
   }
 
