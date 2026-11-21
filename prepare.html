@@ -15,22 +15,7 @@
     }
   </script>
 
-  <div id="gate" class="gate">
-    <form id="gate-form" class="gate-box">
-      <h2>管理者ログイン</h2>
-      <p class="note" style="margin:0 0 8px">この画面は管理者用です。開くたびにパスワードが必要です。</p>
-      <label id="gate-url-row" hidden>APIのURL(settings.txt に未設定のため入力)
-        <input type="text" id="gate-url" class="url-input" placeholder="https://script.google.com/macros/s/…/exec" spellcheck="false">
-      </label>
-      <label>パスワード
-        <input type="password" id="gate-password" autocomplete="off" required>
-      </label>
-      <button type="submit" id="gate-button">ログイン</button>
-      <p id="gate-error" class="bk-warn" role="alert"></p>
-    </form>
-  </div>
-
-  <main class="page" id="main" hidden>
+  <main class="page" id="main">
     <h1>更新準備</h1>
     <p class="lead">
       来年度(または今年度の直し)の設定を作る画面です。下の項目を入れると、<span class="path">documents/settings.txt</span> に貼り付ける文章ができます。
@@ -45,7 +30,7 @@
         <li><b>VSCode</b> でそのフォルダを開く(VSCode の「ファイル → フォルダーを開く」)。</li>
         <li>下の「来年度の設定を作る」で文章を作り、VSCode で <span class="path">documents/settings.txt</span> に貼り付けて保存する。</li>
         <li>Documentsフォルダ内の座席表を更新する。</li>
-        <li>必要に応じて、index.htmlの企業を変更し、imageフォルダ内も更新する。</li>
+        <li>必要に応じて、index.htmlの内容（スケジュール、ルールなど）を変更し、imageフォルダ内も更新する。</li>
         <li>フォルダごとサーバーにアップロードして完成。くわしい手順は一番下の「反映のしかた」にあります。</li>
       </ol>
     </div>
@@ -314,15 +299,6 @@
         publishedText = generateText(settings);
       }
       refreshOutput();
-    });
-
-    // ログイン画面: パスワードが合うまで、この画面を出さない。
-    // settings.txt にAPIのURLが無いときは、ログインで入れたURLを設定の欄にも入れる
-    RRST_adminGate(function (url) {
-      if (!window.RRST_SETTINGS.apiUrl) {
-        document.getElementById("api-url").value = url;
-        refreshOutput();
-      }
     });
   </script>
 </body>
