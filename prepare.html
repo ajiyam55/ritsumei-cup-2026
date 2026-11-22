@@ -52,6 +52,12 @@
       </div>
 
       <div class="field">
+        <label for="edition">第何回</label>
+        <span><input type="number" id="edition" min="1" max="999" inputmode="numeric" style="width:5em" aria-label="第何回"> 回目</span>
+        <span class="hint">index.html の「今年で○回目」に使われます。開催日の年を変えると自動で入りますが(2026年=17回目)、手で直した値が優先されます。</span>
+      </div>
+
+      <div class="field">
         <label for="api-url">APIのURL</label>
         <input type="text" id="api-url" class="url-input" placeholder="https://script.google.com/macros/s/…/exec" spellcheck="false">
         <span class="hint">Apps Script を「新しいデプロイ」にして URL が変わったときだけ書き換えます(全ページ共通の1つです)。</span>
@@ -125,6 +131,7 @@
   <script src="admin-common.js?v=20261124"></script>
   <script>
     var ROUND_ITEMS = RRST_ROUND_ITEMS;
+    var editionTouched = false; // 「第何回」を手で直したら true(開催年を変えても上書きしない)
     var escapeHtml = RRST_escapeHtml;
 
     // 開催日: 年・月・日の3つの欄(ブラウザの日付欄は、端末の言語によって「月/日/年」の欧米順になるため使わない)。
@@ -177,6 +184,7 @@
       var modeInput = document.querySelector('input[name="mode"]:checked');
       return {
         eventDate: dateInput.value,
+        edition: Number(document.getElementById("edition").value) || (Number(dateInput.value.slice(0, 4)) - 2009) || 17,
         mode: modeInput ? modeInput.value : "league",
         courts: courtsInput ? Number(courtsInput.value) : 3,
         apiUrl: document.getElementById("api-url").value.trim(),
@@ -187,6 +195,8 @@
 
     function writeForm(settings) {
       dateInput.value = settings.eventDate;
+      document.getElementById("edition").value = settings.edition;
+      editionTouched = settings.edition !== Number(settings.eventDate.slice(0, 4)) - 2009; // 自動の値と違うなら、手で決めた値
       document.getElementById("api-url").value = settings.apiUrl || "";
       document.getElementById("entry-form-url").value = settings.entryFormUrl || "";
       var radio = document.querySelector('input[name="courts"][value="' + settings.courts + '"]');
@@ -209,6 +219,7 @@
       var lines = [
         "{",
         '  "eventDate": ' + JSON.stringify(settings.eventDate) + ",",
+        '  "edition": ' + settings.edition + ",",
         '  "mode": ' + JSON.stringify(settings.mode) + ",",
         '  "courts": ' + settings.courts + ",",
         '  "apiUrl": ' + JSON.stringify(settings.apiUrl) + ",",
@@ -272,7 +283,15 @@
       setStatus("settings.txt をダウンロードしました。documents フォルダに同じ名前でアップロードしてください。", "ok");
     });
 
-    dateInput.addEventListener("input", refreshOutput);
+    document.getElementById("edition").addEventListener("input", function () {
+      editionTouched = true;
+      refreshOutput();
+    });
+    dateInput.addEventListener("input", function () {
+      var year = Number(dateInput.value.slice(0, 4));
+      if (!editionTouched && year) document.getElementById("edition").value = year - 2009; // 2026年=17回目
+      refreshOutput();
+    });
     document.querySelectorAll('input[name="courts"]').forEach(function (radio) {
       radio.addEventListener("change", function () {
         refreshOutput();

@@ -11,6 +11,7 @@
   var ROUND_KEYS = ["1回戦", "2回戦", "3回戦", "4回戦", "5回戦", "準々決勝", "準決勝", "最終戦"];
   var DEFAULTS = {
     eventDate: "2026-12-05", // 開催日(YYYY-MM-DD)
+    edition: 17,             // 第何回(「今年で17回目」などの表示に使う)。書かなければ 開催年−2009 で自動
     courts: 3,               // コート数(2 または 3)
     mode: "league",          // "league" = リーグ戦→トーナメント / "tournamentOnly" = リーグ無し(出場者を手で決めたトーナメントだけ)
     apiUrl: "",              // API(Apps Script のウェブアプリURL。次の試合・呼び出し・トーナメント表など全部これ1つ)
@@ -28,6 +29,9 @@
     if (typeof raw.eventDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw.eventDate)) {
       out.eventDate = raw.eventDate;
     }
+    out.edition = Number(out.eventDate.slice(0, 4)) - 2009; // 書いてなければ開催年から自動(2026年=17回目)
+    var edition = Number(raw.edition);
+    if (Number.isInteger(edition) && edition >= 1 && edition <= 999) out.edition = edition;
     if (typeof raw.apiUrl === "string" && /^https:\/\/script\.google\.com\/\S+$/.test(raw.apiUrl.trim())) out.apiUrl = raw.apiUrl.trim();
     if (typeof raw.entryFormUrl === "string" && /^https?:\/\/\S+$/.test(raw.entryFormUrl.trim())) out.entryFormUrl = raw.entryFormUrl.trim();
     if (raw.mode === "league" || raw.mode === "tournamentOnly") out.mode = raw.mode;
@@ -90,7 +94,7 @@
       if (key === "date-dot") text = formatDate(settings.eventDate, "dot");
       else if (key === "date-long") text = formatDate(settings.eventDate, "long");
       else if (key === "year") text = formatDate(settings.eventDate, "year");
-      else if (key === "edition") text = formatDate(settings.eventDate, "edition");
+      else if (key === "edition") text = String(settings.edition);
       if (text) nodes[i].textContent = text;
     }
   }

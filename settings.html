@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>大会設定 - 立命杯2026</title>
-  <script src="settings.js?v=20261125"></script>
+  <script src="settings.js?v=20261126"></script>
   <link rel="stylesheet" href="admin-pages.css?v=20261124">
 </head>
 <body>
@@ -139,6 +139,7 @@
         return "<li>" + escapeHtml(item.key) + ": <b>" + setting + "</b></li>";
       }).join("");
       return "開催日: <b>" + escapeHtml(window.RRST_formatDate(settings.eventDate, "long") || settings.eventDate) + "</b><br>" +
+        "第何回: <b>第" + escapeHtml(settings.edition) + "回</b><br>" +
         "コート数: <b>" + settings.courts + "コート</b><br>" +
         "形式: <b>" + (settings.mode === "tournamentOnly" ? "リーグ無し(トーナメントのみ)" : "リーグ戦 → トーナメント") + "</b><br>" +
         (peopleLine(settings.courts) ? "いまの出場者数: <b>" + escapeHtml(peopleLine(settings.courts)) + "</b><br>" : "") +
