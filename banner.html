@@ -309,7 +309,7 @@
     if (!courtKey || !COURTS[courtKey]) {
       document.getElementById("page").innerHTML = `
         <h1>バナー作成</h1>
-        <p class="notice">リングごとに別のパソコン・別のタブで開けるように、コートごとのページに分けています。該当するコートを選んでください。</p>
+        <p class="notice">該当するコートを選んでください。</p>
         <div class="chooser">
           ${Object.entries(COURTS).map(([key, court]) => `<a href="banner.html?court=${key}">${court.label}用を開く</a>`).join("")}
         </div>
@@ -375,8 +375,11 @@
       let swapped = {};
       try { swapped = JSON.parse(localStorage.getItem(SWAP_STORAGE_KEY) || "{}") || {}; } catch (ignore) { swapped = {}; }
       function matchKeyOf(m) { return `${m.kind}-${m.num}`; }
+      // 左右の並び。入れ替えたときは「色と名前をセットで」動かす(赤の機体は入れ替えても赤のまま、右に移る)
       function sidesOf(m) {
-        return swapped[matchKeyOf(m)] ? { red: m.blue, blue: m.red } : { red: m.red, blue: m.blue };
+        const red = { name: m.red, color: "red" };
+        const blue = { name: m.blue, color: "blue" };
+        return swapped[matchKeyOf(m)] ? { left: blue, right: red } : { left: red, right: blue };
       }
 
       let previewIndex = 0;
@@ -406,9 +409,9 @@
           <div class="panel f-info"><span class="court-tag">${escapeHtml(label)}</span><span class="round-tag">${roundTagOf(m)}</span></div>
           ${scheduleHtml()}
           <div class="panel f-bar">
-            <span class="team red">${escapeHtml(sides.red)}</span>
+            <span class="team ${sides.left.color}">${escapeHtml(sides.left.name)}</span>
             <span class="vs">VS</span>
-            <span class="team blue">${escapeHtml(sides.blue)}</span>
+            <span class="team ${sides.right.color}">${escapeHtml(sides.right.name)}</span>
           </div>
         </div>`;
       }
@@ -455,7 +458,7 @@
           <td>${escapeHtml(KIND_LABEL[m.kind])}</td>
           <td>${escapeHtml(m.kind === "league" ? "第" + m.block + "ブロック" : m.roundName)}</td>
           <td>第${escapeHtml(m.num)}試合</td>
-          <td>${escapeHtml(sides.red)} VS ${escapeHtml(sides.blue)}</td>
+          <td>${escapeHtml(sides.left.name)} VS ${escapeHtml(sides.right.name)}</td>
           <td><button class="pill-button" type="button" data-swap="${i}">左右入れ替え</button>
               <button class="pill-button" type="button" data-one="${i}">1枚保存</button></td>
         </tr>`;
