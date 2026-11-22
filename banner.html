@@ -192,67 +192,50 @@
     }
 
     /* 実際に画像として書き出す「バナー」本体(画面下三分の一のテロップ想定) */
-    .banner {
-      width: 100%;
-      max-width: 720px;
-      margin: 0 auto;
-      aspect-ratio: 720 / 260;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: clamp(10px, 2.2vw, 26px);
-      padding: 0 clamp(16px, 3vw, 36px);
-      background: linear-gradient(90deg, rgba(36,33,36,0.94), rgba(36,33,36,0.8));
-      border-radius: 6px;
+    /* ---- 配信(YouTube)に重ねる画像: 1920×1080 固定。透過部分は何も描かない ---- */
+    .frame {
+      position: relative;
+      width: 1920px;
+      height: 1080px;
+      background: transparent;
       color: #fff;
-      font-size: clamp(1rem, 4vw, 2rem);
       font-weight: bold;
-      overflow: hidden;
+      font-family: "Yu Gothic", "Hiragino Kaku Gothic ProN", sans-serif;
     }
-
-    .banner .court-tag {
-      flex: 0 0 auto;
-      padding: 0.3em 0.7em;
-      background: var(--primary);
-      border-radius: 4px;
-      font-size: 0.7em;
-      white-space: nowrap;
+    .frame .panel {
+      position: absolute;
+      background: linear-gradient(90deg, rgba(36,33,36,0.94), rgba(36,33,36,0.8));
+      border-radius: 8px;
     }
+    /* 左上: コート・ブロック(回戦)・試合 */
+    /* 黒い枠。動画をはめる窓(x:24〜1564 / y:24〜890 = 1540×866 の16:9)だけは何も描かず透過にする */
+    .f-black { position: absolute; background: #000; }
+    .f-info { left: 48px; top: 48px; display: flex; align-items: center; gap: 20px; padding: 14px 26px; font-size: 44px; }
+    .f-info .court-tag { padding: 0.2em 0.6em; background: var(--primary); border-radius: 6px; font-size: 0.9em; white-space: nowrap; }
+    .f-info .round-tag { color: #e7dfe0; font-size: 0.7em; line-height: 1.25; white-space: nowrap; }
+    /* 右: スケジュール(幅は全体の15%) */
+    .f-sched { left: 1588px; top: 24px; width: 308px; height: 866px; padding: 22px 20px; overflow: hidden; font-size: 22px; }
+    .f-sched h4 { margin-bottom: 16px; color: #c8c1c3; font-size: 0.9em; }
+    .f-sched ol { list-style: none; }
+    .f-sched li { display: flex; gap: 12px; margin-bottom: 14px; line-height: 1.3; }
+    .f-sched li b { flex: 0 0 auto; min-width: 3.2em; color: #ffd0d3; }
+    .f-sched li span { min-width: 0; word-break: break-word; }
+    /* 下: 対戦(名前だけ・1行) */
+    .f-bar { left: 24px; right: 24px; bottom: 24px; height: 150px; display: flex; align-items: center; gap: 40px; padding: 0 50px; }
+    .f-bar .team { flex: 1 1 0; min-width: 0; overflow: hidden; white-space: nowrap; text-align: center; font-size: 96px; line-height: 1.25; }
+    .f-bar .team.red { color: #ff8a7a; }
+    .f-bar .team.blue { color: #86b6ff; }
+    .f-bar .vs { flex: 0 0 auto; color: #c8c1c3; font-size: 56px; }
 
-    .banner .round-tag {
-      flex: 0 0 auto;
-      color: #e7dfe0;
-      font-size: 0.55em;
-      white-space: nowrap;
-    }
-
-    .banner .team {
-      flex: 1 1 0; /* 左右の幅を同じにする(auto だと、名前が長い側が幅を取って、短い側が狭くなり文字が縮む) */
-      min-width: 0;
-      text-align: center;
-      overflow: hidden;
-      white-space: normal;
-      word-break: break-word;
-      line-height: 1.15;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-    }
-
-    .banner .team.red { color: #ff8a7a; }
-    .banner .team.blue { color: #86b6ff; }
-
-    .banner .vs {
-      flex: 0 0 auto;
-      color: #c8c1c3;
-      font-size: 0.55em;
-    }
-
-    .banner.is-empty {
-      color: #a8a2a6;
-      font-size: 1rem;
-      font-weight: normal;
-    }
+    /* 画面でのプレビュー(透過が分かるよう市松模様) */
+    .preview-wrap { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border: 1px solid var(--line); border-radius: 8px;
+      background: #d9d9d9 conic-gradient(#fff 25%, transparent 0 50%, #fff 0 75%, transparent 0) 0 0 / 24px 24px; }
+    .preview-wrap .frame { position: absolute; left: 0; top: 0; transform-origin: top left; }
+    .schedule-box { margin: 14px 0; }
+    .schedule-box label { display: block; margin-bottom: 4px; color: var(--muted); font-size: 0.85rem; font-weight: bold; }
+    .schedule-box textarea { width: 100%; min-height: 110px; padding: 8px 10px; font: inherit; font-size: 0.95rem; line-height: 1.5; border: 1px solid var(--line); border-radius: 6px; }
+    .log-table tr[data-row] { cursor: pointer; }
+    .log-table tr.is-preview td { background: #f6ebec; }
 
     .log-head {
       display: flex;
@@ -292,12 +275,6 @@
     .log-empty {
       color: var(--muted);
       font-size: 0.82rem;
-    }
-
-    @media (max-width: 640px) {
-      .banner {
-        aspect-ratio: 400 / 180;
-      }
     }
   </style>
 </head>
@@ -361,9 +338,15 @@
           <span id="status-text">読み込み中…</span>
           <div class="buttons">
             <button class="pill-button" id="reload-button" type="button">読み込み直す</button>
+            <button class="pill-button" id="swap-all-button" type="button">全試合の左右を入れ替え</button>
             <button class="pill-button" id="batch-download-button" type="button" disabled>まとめてダウンロード</button>
           </div>
         </div>
+        <div class="schedule-box">
+          <label for="schedule-input">スケジュール(右側に表示)。1行に1つ「時間 内容」の形で入力。このブラウザに保存されます</label>
+          <textarea id="schedule-input" placeholder="10:00 開会式&#10;10:30 リーグ戦&#10;12:00 休憩&#10;13:00 トーナメント" spellcheck="false"></textarea>
+        </div>
+        <div class="preview-wrap" id="preview-wrap"></div>
         <div id="list-area"></div>
       `;
 
@@ -386,6 +369,72 @@
         return !team || !team.name || team.name === "未設定" ? "" : team.name;
       }
 
+      // ---- 左右入れ替え(試合ごとに記憶。このブラウザに保存) ----
+      const SWAP_STORAGE_KEY = `rrstBannerSwap_${key}`;
+      const SCHEDULE_STORAGE_KEY = "rrstBannerSchedule"; // スケジュールは全コート共通
+      let swapped = {};
+      try { swapped = JSON.parse(localStorage.getItem(SWAP_STORAGE_KEY) || "{}") || {}; } catch (ignore) { swapped = {}; }
+      function matchKeyOf(m) { return `${m.kind}-${m.num}`; }
+      function sidesOf(m) {
+        return swapped[matchKeyOf(m)] ? { red: m.blue, blue: m.red } : { red: m.red, blue: m.blue };
+      }
+
+      let previewIndex = 0;
+
+      function scheduleText() { return document.getElementById("schedule-input").value; }
+
+      function scheduleHtml() {
+        const items = scheduleText().split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+        if (!items.length) return "";
+        const rows = items.map(line => {
+          const hit = line.match(/^(\d{1,2}[:：]\d{2})\s*(.*)$/);
+          return hit
+            ? `<li><b>${escapeHtml(hit[1].replace("：", ":"))}</b><span>${escapeHtml(hit[2])}</span></li>`
+            : `<li><span>${escapeHtml(line)}</span></li>`;
+        }).join("");
+        return `<aside class="panel f-sched"><h4>スケジュール</h4><ol>${rows}</ol></aside>`;
+      }
+
+      // 1920×1080 の画像1枚ぶんのHTML。透過にしたい部分には何も置かない
+      function frameHtml(m) {
+        const sides = sidesOf(m);
+        return `<div class="frame">
+          <div class="f-black" style="left:0;top:0;width:1920px;height:24px"></div>
+          <div class="f-black" style="left:0;top:24px;width:24px;height:866px"></div>
+          <div class="f-black" style="left:1564px;top:24px;width:356px;height:866px"></div>
+          <div class="f-black" style="left:0;top:890px;width:1920px;height:190px"></div>
+          <div class="panel f-info"><span class="court-tag">${escapeHtml(label)}</span><span class="round-tag">${roundTagOf(m)}</span></div>
+          ${scheduleHtml()}
+          <div class="panel f-bar">
+            <span class="team red">${escapeHtml(sides.red)}</span>
+            <span class="vs">VS</span>
+            <span class="team blue">${escapeHtml(sides.blue)}</span>
+          </div>
+        </div>`;
+      }
+
+      // 名前を1行に収める。枠に入るまで文字を縮める(短い名前は大きいまま)
+      function fitFrameNames(frameEl) {
+        frameEl.querySelectorAll(".f-bar .team").forEach(el => {
+          el.style.fontSize = "";
+          let fontSize = parseFloat(getComputedStyle(el).fontSize);
+          while (el.scrollWidth > el.clientWidth && fontSize > 20) {
+            fontSize -= 2;
+            el.style.fontSize = fontSize + "px";
+          }
+        });
+      }
+
+      function renderPreview() {
+        const wrap = document.getElementById("preview-wrap");
+        const m = matches[previewIndex];
+        if (!m) { wrap.innerHTML = ""; return; }
+        wrap.innerHTML = frameHtml(m);
+        const frameEl = wrap.firstElementChild;
+        frameEl.style.transform = `scale(${wrap.clientWidth / 1920})`;
+        fitFrameNames(frameEl);
+      }
+
       function setStatus(text, paused) {
         document.getElementById("status-text").textContent = text;
         document.getElementById("status-line").classList.toggle("is-paused", Boolean(paused));
@@ -397,53 +446,37 @@
         const area = document.getElementById("list-area");
         if (!matches.length) {
           area.innerHTML = `<p class="log-empty">バナーにできる試合がありません。</p>`;
+          renderPreview();
           return;
         }
-        const rows = matches.map((m, i) => `<tr>
+        const rows = matches.map((m, i) => {
+          const sides = sidesOf(m);
+          return `<tr data-row="${i}" class="${i === previewIndex ? "is-preview" : ""}">
           <td>${escapeHtml(KIND_LABEL[m.kind])}</td>
           <td>${escapeHtml(m.kind === "league" ? "第" + m.block + "ブロック" : m.roundName)}</td>
           <td>第${escapeHtml(m.num)}試合</td>
-          <td>${escapeHtml(m.red)} VS ${escapeHtml(m.blue)}</td>
-          <td><button class="pill-button" type="button" data-one="${i}">1枚保存</button></td>
-        </tr>`).join("");
+          <td>${escapeHtml(sides.red)} VS ${escapeHtml(sides.blue)}</td>
+          <td><button class="pill-button" type="button" data-swap="${i}">左右入れ替え</button>
+              <button class="pill-button" type="button" data-one="${i}">1枚保存</button></td>
+        </tr>`;
+        }).join("");
         area.innerHTML = `<table class="log-table">
-          <thead><tr><th>種類</th><th>ブロック/回戦</th><th>試合</th><th>対戦</th><th></th></tr></thead>
+          <thead><tr><th>種類</th><th>ブロック/回戦</th><th>試合</th><th>対戦(行を押すと上にプレビュー)</th><th></th></tr></thead>
           <tbody>${rows}</tbody>
         </table>`;
+        renderPreview();
       }
 
-      // 名前が長くて枠からはみ出す/省略されるのを防ぐため、2行に収まるまでフォントサイズを自動で縮める
-      function fitBannerNames(bannerEl) {
-        bannerEl.querySelectorAll(".team").forEach(el => {
-          const lineHeightRatio = 1.15;
-          el.style.fontSize = "";
-          let fontSize = parseFloat(getComputedStyle(el).fontSize);
-          const minFontSize = Math.max(10, fontSize * 0.4);
-          for (let i = 0; i < 40; i++) {
-            const maxHeight = fontSize * lineHeightRatio * 2 + 1;
-            if (el.scrollHeight <= maxHeight || fontSize <= minFontSize) break;
-            fontSize -= 1;
-            el.style.fontSize = fontSize + "px";
-          }
-        });
-      }
-
-      // 1試合ぶんのバナーを画面の外で組み立てて、PNG(Blob)にする
+      // 1試合ぶんの画像(1920×1080・背景は透過)を画面の外で組み立てて、PNG(Blob)にする
       async function renderBannerBlob(match) {
         const holder = document.createElement("div");
-        holder.style.cssText = "position:fixed;left:-9999px;top:0;width:1280px";
-        holder.innerHTML = `<div class="banner">
-          <span class="court-tag">${escapeHtml(label)}</span>
-          <span class="round-tag">${roundTagOf(match)}</span>
-          <span class="team red">${escapeHtml(match.red)}</span>
-          <span class="vs">VS</span>
-          <span class="team blue">${escapeHtml(match.blue)}</span>
-        </div>`;
+        holder.style.cssText = "position:fixed;left:-9999px;top:0;width:1920px;height:1080px";
+        holder.innerHTML = frameHtml(match);
         document.body.appendChild(holder);
         try {
-          const bannerEl = holder.querySelector(".banner");
-          fitBannerNames(bannerEl);
-          const canvas = await html2canvas(bannerEl, { backgroundColor: null, scale: 2 });
+          const frameEl = holder.querySelector(".frame");
+          fitFrameNames(frameEl);
+          const canvas = await html2canvas(frameEl, { backgroundColor: null, scale: 1, width: 1920, height: 1080 });
           const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
           if (!blob) throw new Error("画像の作成に失敗しました");
           return blob;
@@ -544,14 +577,44 @@
       }
 
       document.getElementById("list-area").addEventListener("click", async event => {
+        const swap = event.target.closest("[data-swap]");
+        if (swap) {
+          const m = matches[Number(swap.dataset.swap)];
+          swapped[matchKeyOf(m)] = !swapped[matchKeyOf(m)];
+          if (!swapped[matchKeyOf(m)]) delete swapped[matchKeyOf(m)];
+          try { localStorage.setItem(SWAP_STORAGE_KEY, JSON.stringify(swapped)); } catch (ignore) { /* 保存できなくても動く */ }
+          previewIndex = Number(swap.dataset.swap);
+          renderList();
+          return;
+        }
         const one = event.target.closest("[data-one]");
-        if (!one) return;
+        if (!one) {
+          const row = event.target.closest("[data-row]");
+          if (row) { previewIndex = Number(row.dataset.row); renderList(); }
+          return;
+        }
         const match = matches[Number(one.dataset.one)];
         if (!match || typeof html2canvas !== "function") return;
         one.disabled = true;
         try { saveBlob(await renderBannerBlob(match), fileNameOf(match)); }
         catch (error) { console.error(error); alert("画像の保存に失敗しました。"); }
         one.disabled = false;
+      });
+      const scheduleInput = document.getElementById("schedule-input");
+      try { scheduleInput.value = localStorage.getItem(SCHEDULE_STORAGE_KEY) || ""; } catch (ignore) { /* なくても動く */ }
+      scheduleInput.addEventListener("input", () => {
+        try { localStorage.setItem(SCHEDULE_STORAGE_KEY, scheduleInput.value); } catch (ignore) { /* 保存できなくても動く */ }
+        renderPreview();
+      });
+      window.addEventListener("resize", renderPreview);
+      // 全試合の左右を一度に反転する(いま入れ替えてある試合は元に戻る)
+      document.getElementById("swap-all-button").addEventListener("click", () => {
+        matches.forEach(m => {
+          const k = matchKeyOf(m);
+          if (swapped[k]) delete swapped[k]; else swapped[k] = true;
+        });
+        try { localStorage.setItem(SWAP_STORAGE_KEY, JSON.stringify(swapped)); } catch (ignore) { /* 保存できなくても動く */ }
+        renderList();
       });
       document.getElementById("reload-button").addEventListener("click", load);
       document.getElementById("batch-download-button").addEventListener("click", batchDownload);
