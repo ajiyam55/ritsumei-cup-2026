@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>座席表 - 立命杯2026</title>
+  <script src="settings.js?v=20261126"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --primary: #7b1e24;
+      --primary-light: #a54c52;
+      --ink: #242124;
+      --muted: #777176;
+      --line: #d4cdd0;
+    }
+
+    html, body {
+      min-height: 100%;
+      background: #fff;
+      color: var(--ink);
+      font-family: "Yu Gothic", "Hiragino Kaku Gothic ProN", sans-serif;
+    }
+
+    body { padding: 72px 16px 32px; }
+
+    .page { width: min(1100px, 100%); margin: 0 auto; }
+
+    .back-button {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      z-index: 10;
+      background-color: var(--primary);
+      color: white;
+      padding: 10px 18px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: bold;
+      box-shadow: 0 4px 12px rgb(65 25 28 / 18%);
+    }
+    .back-button:hover { background-color: var(--primary-light); }
+
+    .page-header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px 20px;
+      margin-bottom: 16px;
+    }
+    h1 { font-size: clamp(1.5rem, 3vw, 2.2rem); letter-spacing: 0.04em; }
+    .tools a {
+      display: inline-block;
+      padding: 7px 14px;
+      border: 1px solid var(--primary);
+      border-radius: 999px;
+      color: var(--primary);
+      background: #fff;
+      font-size: 0.85rem;
+      font-weight: bold;
+      text-decoration: none;
+    }
+    .tools a:hover { background: #f6ebec; }
+
+    .sheet {
+      display: block;
+      width: 100%;
+      height: auto;
+      margin: 0 0 16px;
+      background: #fff;
+    }
+    .message { padding: 40px 0; text-align: center; color: var(--muted); line-height: 1.8; }
+    .hint { margin-top: 4px; color: var(--muted); font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+  <a class="back-button" href="index.html">← 戻る</a>
+  <main class="page">
+    <div class="page-header">
+      <h1>座席表</h1>
+      <div class="tools"><a id="open-pdf" href="#" target="_blank" rel="noopener">PDFを開く・保存</a></div>
+    </div>
+    <div id="sheets"><p class="message">読み込み中…</p></div>
+    <p class="hint">スマホは2本指で拡大できます。</p>
+  </main>
+
+  <script>
+    // 座席表のPDFの場所。毎年、新しいPDFを置いたら、ここだけ直してください。
+    const SEAT_PDF = "documents/座席表.pdf";
+
+    document.getElementById("open-pdf").href = SEAT_PDF;
+
+    const sheets = document.getElementById("sheets");
+    let pdfDoc = null;
+    let renderedWidth = 0;
+    let rendering = false;
+
+    function showMessage(text) {
+      sheets.innerHTML = `<p class="message">${text}<br>上の「PDFを開く・保存」から見られます。</p>`;
+    }
+
+    // ページの幅いっぱいに、くっきり描く(画面の解像度に合わせて大きく描いて縮めて表示する)
+    async function renderAll() {
+      if (!pdfDoc || rendering) return;
+      const width = sheets.clientWidth;
+      if (!width || width === renderedWidth) return;
+      rendering = true;
+      renderedWidth = width;
+      const ratio = Math.min(window.devicePixelRatio || 1, 3);
+      const canvases = [];
+      for (let n = 1; n <= pdfDoc.numPages; n += 1) {
+        const page = await pdfDoc.getPage(n);
+        const base = page.getViewport({ scale: 1 });
+        const viewport = page.getViewport({ scale: (width / base.width) * ratio });
+        const canvas = document.createElement("canvas");
+        canvas.className = "sheet";
+        canvas.width = Math.floor(viewport.width);
+        canvas.height = Math.floor(viewport.height);
+        await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+        canvases.push(canvas);
+      }
+      sheets.replaceChildren(...canvases);
+      rendering = false;
+      if (sheets.clientWidth !== width) { renderedWidth = 0; renderAll(); } // 描いている間に画面の幅が変わったとき
+    }
+
+    async function start() {
+      if (typeof pdfjsLib === "undefined") { showMessage("表示用の部品を読み込めませんでした。"); return; }
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+      try {
+        pdfDoc = await pdfjsLib.getDocument(SEAT_PDF).promise;
+        await renderAll();
+      } catch (error) {
+        console.error("座席表PDFの読み込みエラー:", error);
+        showMessage("座席表を表示できませんでした。");
+      }
+    }
+
+    let resizeTimer = null;
+    window.addEventListener("resize", () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(renderAll, 250);
+    });
+    start();
+  </script>
+</body>
+</html>
