@@ -77,6 +77,9 @@ const CURRENT_MATCH_CACHE_KEY = "current_match";
 const NEXT_MATCH_VISIBLE_PROPERTY = "nextMatchNamesVisible";
 const TOURNAMENT_PUBLISHED_PROPERTY = "tournamentPublished"; // トーナメント表の公開/非公開(未設定なら非公開)
 const ENTRY_OPEN_PROPERTY = "entryOpen"; // 応募の公開/非公開(未設定なら非公開)。サイト公開後に管理画面から切り替える
+const RESULTS_PUBLISHED_PROPERTY = "resultsPublished"; // 結果発表の公開/非公開(未設定なら非公開)
+const RESULTS_PROPERTY = "results";                    // 結果発表の中身(1〜3位と企業賞)をJSONで保存
+const MAX_AWARDS = 30;
 const FLAGS_CACHE_KEY = "site_flags";
 const FLAGS_CACHE_SECONDS = 10;
 const REDACTED_TEAM = { num: "?", name: "ー" };
@@ -325,8 +328,11 @@ function getSiteFlags() {
   const payload = {
     entryOpen: isEntryOpen(),
     tournamentPublished: isTournamentPublished(),
-    namesVisible: isNextMatchVisible()
+    namesVisible: isNextMatchVisible(),
+    resultsPublished: isResultsPublished()
   };
+  // 結果発表の中身は、公開中のときだけ一緒に返す(index が1回のAPI呼び出しで済むように、ここに同梱)
+  if (payload.resultsPublished) payload.results = readResults();
   try { CacheService.getScriptCache().put(FLAGS_CACHE_KEY, JSON.stringify(payload), FLAGS_CACHE_SECONDS); } catch (ignore) { /* キャッシュできなくても動く */ }
   return jsonOutput(payload);
 }
@@ -342,6 +348,131 @@ function isEntryOpen() {
 function setEntryOpen(open) {
   PropertiesService.getScriptProperties().setProperty(ENTRY_OPEN_PROPERTY, open ? "true" : "false");
   clearFlagsCache();
+}
+
+// ---------------------------------------------------------------
+// 結果発表(1〜3位・企業賞)。大会設定の画面から入力して、サイト(index)に出す
+// ---------------------------------------------------------------
+
+function isResultsPublished() {
+  return PropertiesService.getScriptProperties().getProperty(RESULTS_PUBLISHED_PROPERTY) === "true"; // 未設定なら非公開
+}
+
+function setResultsPublished(published) {
+  PropertiesService.getScriptProperties().setProperty(RESULTS_PUBLISHED_PROPERTY, published ? "true" : "false");
+  clearFlagsCache();
+}
+
+function cleanText(value, max) {
+  return String(value === undefined || value === null ? "" : value).trim().slice(0, max || 80);
+}
+
+// 保存してある内容を { podium: [{number,name} ×3], awards: [{title,number,name}…] } の形で返す
+function readResults() {
+  let stored = {};
+  try { stored = JSON.parse(PropertiesService.getScriptProperties().getProperty(RESULTS_PROPERTY) || "{}") || {}; } catch (ignore) { stored = {}; }
+  return normalizeResults(stored);
+}
+
+function normalizeResults(raw) {
+  const podium = [0, 1, 2].map(index => {
+    const item = (raw && Array.isArray(raw.podium) && raw.podium[index]) || {};
+    return { number: cleanText(item.number, 10), name: cleanText(item.name, 80) };
+  });
+  const awards = (raw && Array.isArray(raw.awards) ? raw.awards : []).slice(0, MAX_AWARDS).map(item => ({
+    title: cleanText(item && item.title, 60),
+    number: cleanText(item && item.number, 10),
+    name: cleanText(item && item.name, 80)
+  })).filter(item => item.title || item.number || item.name);
+  return { podium, awards };
+}
+
+function saveResults(raw) {
+  const results = normalizeResults(raw);
+  PropertiesService.getScriptProperties().setProperty(RESULTS_PROPERTY, JSON.stringify(results));
+  clearFlagsCache();
+  return results;
+}
+
+// 最終決戦の結果から、1〜3位を求める(tournament.html の finalStandings と同じルール)。
+//   3コート: A・B・Cの代表の総当たり。2勝=1位、1勝=2位、0勝=3位。全員1勝1敗なら、運営が決めた順位(PODIUM)を使う。
+//   2コート: 決勝の勝者=1位・敗者=2位。各コートの準決勝で敗れた側どうしの3位決定戦の勝者=3位。
+// まだ決まっていなければ status が "waiting"、三すくみで運営の順位が未入力なら "tie"。
+function computePodium(spreadsheet) {
+  const courts = Object.keys(LEAGUE_SHEETS)
+    .map(league => ({ league, data: buildTournamentPayload(spreadsheet, league) }))
+    .filter(court => court.data && !court.data.error);
+  const qualifiers = courts.map(court => (court.data.qualifier && court.data.qualifier.name ? court.data.qualifier : null));
+  if (courts.length < 2 || qualifiers.some(qualifier => !qualifier)) return { status: "waiting" };
+
+  const finalPayload = buildFinalPayload(spreadsheet);
+  const key = team => String(team.number || "") + "|" + team.name;
+  const brief = team => ({ number: String(team.number || ""), name: String(team.name) });
+  const empty = value => value === "" || value === null || value === undefined;
+
+  // 保存済みのスコアで、その試合の勝者を返す(まだ・同点・対戦カードが変わっていれば null)
+  function winnerOf(matchNumber, red, blue) {
+    const saved = finalPayload.rows.filter(row => row.match === matchNumber)[0];
+    if (!saved || saved.redName !== red.name || saved.blueName !== blue.name) return null;
+    if (empty(saved.redScore) || empty(saved.blueScore)) return null;
+    const redScore = Number(saved.redScore), blueScore = Number(saved.blueScore);
+    if (isNaN(redScore) || isNaN(blueScore) || redScore === blueScore) return null;
+    return redScore > blueScore ? red : blue;
+  }
+
+  if (courts.length === 2) {
+    const first = winnerOf(1, qualifiers[0], qualifiers[1]);
+    if (!first) return { status: "waiting" };
+    const second = key(first) === key(qualifiers[0]) ? qualifiers[1] : qualifiers[0];
+    const runnerUps = courts.map(court => {
+      const finalRound = Math.log2(court.data.bracketSize || 2) - 1;
+      const match = (court.data.matches || []).filter(item => item.round === finalRound)[0];
+      if (!match || !match.winner) return null;
+      const loser = match.red && match.red.winner ? match.blue : match.red;
+      return loser && loser.name ? loser : null;
+    });
+    if (!runnerUps[0] || !runnerUps[1]) return { status: "waiting" };
+    const third = winnerOf(2, runnerUps[0], runnerUps[1]);
+    if (!third) return { status: "waiting" };
+    return { status: "decided", order: [first, second, third].map(brief) };
+  }
+
+  if (courts.length !== 3) return { status: "waiting" };
+  const pairs = [[qualifiers[0], qualifiers[1]], [qualifiers[1], qualifiers[2]], [qualifiers[2], qualifiers[0]]];
+  const winners = pairs.map((pair, index) => winnerOf(index + 1, pair[0], pair[1]));
+  if (winners.some(winner => !winner)) return { status: "waiting" };
+  const wins = {};
+  qualifiers.forEach(team => { wins[key(team)] = 0; });
+  winners.forEach(winner => { wins[key(winner)] += 1; });
+  const distinct = qualifiers.map(team => wins[key(team)]).filter((value, index, all) => all.indexOf(value) === index).length === 3;
+  if (distinct) {
+    return { status: "decided", order: qualifiers.slice().sort((left, right) => wins[key(right)] - wins[key(left)]).map(brief) };
+  }
+  // 三すくみ: 運営が決めた順位(PODIUM)を使う
+  const byRank = {};
+  finalPayload.podium.forEach(item => { byRank[item.rank] = item; });
+  const manual = [1, 2, 3].map(rank => {
+    const item = byRank[rank];
+    return item && qualifiers.filter(team => key(team) === String(item.number || "") + "|" + item.name)[0];
+  });
+  if (manual.every(Boolean) && manual.map(key).filter((value, index, all) => all.indexOf(value) === index).length === 3) {
+    return { status: "decided", order: manual.map(brief), source: "manual" };
+  }
+  return { status: "tie" };
+}
+
+// 機体番号から機体名を引く(「機体一覧」シートの A列=番号、B列=名前)。numbers は番号の配列
+function lookupRobotNames(numbers) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("機体一覧");
+  const names = {};
+  if (!sheet) return names;
+  const wanted = {};
+  (Array.isArray(numbers) ? numbers : []).forEach(number => { wanted[String(number).trim()] = true; });
+  sheet.getDataRange().getValues().slice(1).forEach(row => {
+    const number = String(row[0]).trim();
+    if (wanted[number] && !(number in names)) names[number] = String(row[1]).trim();
+  });
+  return names;
 }
 
 function isTournamentPublished() {
@@ -811,6 +942,32 @@ function doPost(event) {
     if (body.action === "setEntryOpen") {
       setEntryOpen(Boolean(body.open));
       return jsonOutput({ ok: true, entryOpen: Boolean(body.open) });
+    }
+
+    // 結果発表の公開/非公開
+    if (body.action === "setResultsPublished") {
+      setResultsPublished(Boolean(body.published));
+      return jsonOutput({ ok: true, published: Boolean(body.published) });
+    }
+
+    // 結果発表の中身(管理画面で編集する用に、公開前でも読める)
+    if (body.action === "getResults") {
+      return jsonOutput({ ok: true, results: readResults() });
+    }
+
+    // 結果発表の中身を保存
+    if (body.action === "setResults") {
+      return jsonOutput({ ok: true, results: saveResults(body.results) });
+    }
+
+    // 最終決戦の結果から1〜3位を求める(結果発表の入力で「1〜3位を入れる」ボタンが使う)
+    if (body.action === "loadPodium") {
+      return jsonOutput(Object.assign({ ok: true }, computePodium(SpreadsheetApp.getActiveSpreadsheet())));
+    }
+
+    // 機体番号 → 機体名(結果発表の入力で「名前を呼び出す」ボタンが使う)
+    if (body.action === "lookupRobots") {
+      return jsonOutput({ ok: true, names: lookupRobotNames(body.numbers) });
     }
 
     // トーナメント表の公開/非公開

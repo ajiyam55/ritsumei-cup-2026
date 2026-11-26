@@ -147,3 +147,13 @@
   .bk-lock:hover { color: var(--primary); background: #f1eeef; }
   .bk-lock.is-locked { color: var(--primary); }
   .bk-chip.is-locked { border-color: var(--primary); background: #f6ebec; }
+
+  /* 結果発表の入力 */
+  .res-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 0; }
+  .res-row + .res-row { border-top: 1px solid var(--line); }
+  .res-row input { min-width: 0; padding: 7px 10px; font: inherit; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+  .res-label { flex: 0 0 2.6em; font-weight: bold; }
+  .res-num { flex: 0 0 7em; }
+  .res-name { flex: 1 1 12em; }
+  .res-title { flex: 1 1 100%; }
+  .res-del { flex: 0 0 auto; min-height: 34px; padding: 0 12px; }

@@ -47,6 +47,25 @@
       ここはサーバー(API)に保存されるので、サイトを公開したあとでも、ボタンを押すだけですぐ切り替わります(settings.txt の書き換えは要りません)。
     </p>
 
+    <h2>結果発表の内容(1〜3位・企業賞)</h2>
+    <div class="card">
+      <p class="note" style="margin-top:0">
+        index.html の「結果発表」に出す内容です。<b>1〜3位</b>は「1〜3位を入れる」で、最終決戦の結果から自動で入ります(トーナメント上位なので、リーグの有無に関係なく使えます)。<b>企業賞</b>は、機体番号を入れて「名前を呼び出す」を押すと、機体一覧から名前が入ります。どちらも押したときだけAPIを使い、名前は<b>あとから直してもOK</b>です(手で直した名前は、呼び出しても上書きされません)。
+        <b>「保存」を押しただけでは公開されません。</b>上の「公開・表示の管理」の<b>結果発表</b>で公開してください。
+      </p>
+      <h3>1〜3位</h3>
+      <div id="res-podium"></div>
+      <div class="buttons"><button type="button" class="secondary" id="res-podium-load">1〜3位を入れる</button></div>
+      <h3>企業賞</h3>
+      <div id="res-awards"></div>
+      <div class="buttons">
+        <button type="button" class="secondary" id="res-add">賞を追加</button>
+        <button type="button" class="secondary" id="res-lookup">名前を呼び出す</button>
+        <button type="button" id="res-save">保存</button>
+      </div>
+      <p class="status" id="res-status" role="status"></p>
+    </div>
+
     <h2>対戦の並び(人の入れ替え)</h2>
     <div class="card">
       <p class="note" style="margin-top:0">
@@ -393,6 +412,11 @@
         hint: "表示中は、index.html に応募のセクションと、メニューの「応募」が出ます(応募フォームのURLは来年度の設定で決めます)。",
         confirmOn: "応募を表示しますか?\nindex.html に応募のセクションが出ます。",
         confirmOff: "応募を非表示にしますか?\nindex.html から応募のセクションが消えます。" },
+      { key: "resultsPublished", title: "結果発表", on: "公開中", off: "非公開",
+        onBtn: "非公開にする", offBtn: "公開する", action: "setResultsPublished", param: "published",
+        hint: "公開中は、index.html の一番上に「結果発表」(1〜3位と企業賞)が出ます。中身は下の「結果発表の内容」で入力します。",
+        confirmOn: "結果発表を公開しますか?\nindex.html の一番上に、1〜3位と企業賞が出ます。",
+        confirmOff: "結果発表を非公開にしますか?\nindex.html から結果発表が消えます。" },
       { key: "namesVisible", title: "次の試合の対戦カード", on: "名前を表示", off: "伏せ字",
         onBtn: "伏せ字にする", offBtn: "名前を表示する", action: "setNextMatchVisible", param: "visible",
         hint: "試合の前・後に名前を隠したいときは「伏せ字」にします(名前と番号が「?」「ー」になります)。呼び出し画面でも切り替えられます。" }
@@ -447,10 +471,135 @@
       });
     });
 
+    // ===== 結果発表の内容(1〜3位・企業賞)の入力 =====
+    var MAX_AWARDS = 30;
+    var resPodiumEl = document.getElementById("res-podium");
+    var resAwardsEl = document.getElementById("res-awards");
+    var resStatusEl = document.getElementById("res-status");
+
+    function resStatus(text, kind) { resStatusEl.textContent = text; resStatusEl.className = "status" + (kind ? " is-" + kind : ""); }
+
+    function podiumRowHtml(rank, item) {
+      return '<div class="res-row" data-podium="' + rank + '"><span class="res-label">' + rank + '位</span>' +
+        '<input class="res-num" type="text" inputmode="numeric" placeholder="機体番号" value="' + escapeHtml(item.number) + '" aria-label="' + rank + '位の機体番号">' +
+        '<input class="res-name" type="text" placeholder="機体名" value="' + escapeHtml(item.name) + '" aria-label="' + rank + '位の機体名"></div>';
+    }
+
+    function awardRowHtml(item) {
+      return '<div class="res-row" data-award>' +
+        '<input class="res-title" type="text" placeholder="賞の名前(例: ○○株式会社賞)" value="' + escapeHtml(item.title) + '" aria-label="賞の名前">' +
+        '<input class="res-num" type="text" inputmode="numeric" placeholder="機体番号" value="' + escapeHtml(item.number) + '" aria-label="機体番号">' +
+        '<input class="res-name" type="text" placeholder="機体名" value="' + escapeHtml(item.name) + '" aria-label="機体名">' +
+        '<button type="button" class="secondary res-del" aria-label="この賞を削除">削除</button></div>';
+    }
+
+    function renderResults(results) {
+      resPodiumEl.innerHTML = [1, 2, 3].map(function (rank) { return podiumRowHtml(rank, results.podium[rank - 1] || { number: "", name: "" }); }).join("");
+      resAwardsEl.innerHTML = results.awards.map(awardRowHtml).join("");
+      // 保存済みの名前は「手で決めた名前」として扱い、呼び出しで上書きしない
+      resultRows().forEach(function (row) { if (nameInput(row).value) nameInput(row).dataset.manual = "1"; });
+    }
+
+    function resultRows() { return Array.prototype.slice.call(document.querySelectorAll("#res-podium .res-row, #res-awards .res-row")); }
+    function numInput(row) { return row.querySelector(".res-num"); }
+    function nameInput(row) { return row.querySelector(".res-name"); }
+
+    function readResultsForm() {
+      return {
+        podium: [1, 2, 3].map(function (rank) {
+          var row = resPodiumEl.querySelector('[data-podium="' + rank + '"]');
+          return { number: numInput(row).value.trim(), name: nameInput(row).value.trim() };
+        }),
+        awards: Array.prototype.slice.call(resAwardsEl.querySelectorAll("[data-award]")).map(function (row) {
+          return { title: row.querySelector(".res-title").value.trim(), number: numInput(row).value.trim(), name: nameInput(row).value.trim() };
+        })
+      };
+    }
+
+    function loadResults() {
+      renderResults({ podium: [], awards: [] });
+      postJson({ action: "getResults", token: RRST_ADMIN.token }).then(function (res) {
+        if (!res || !res.ok) throw new Error((res && res.error) || "読み込めませんでした");
+        renderResults(res.results);
+      }).catch(function (err) { resStatus((err && err.message) || "結果発表の内容を読み込めませんでした。", "warn"); });
+    }
+
+    // 最終決戦の結果から1〜3位を入れる(ボタンを押したときだけAPIを使う)
+    document.getElementById("res-podium-load").addEventListener("click", function (event) {
+      var button = event.currentTarget;
+      button.disabled = true; resStatus("最終決戦の結果を確認中…", "");
+      postJson({ action: "loadPodium", token: RRST_ADMIN.token }).then(function (res) {
+        if (!res || !res.ok) throw new Error((res && res.error) || "確認できませんでした");
+        if (res.status === "waiting") { resStatus("最終決戦の結果が、まだそろっていません(代表が決まり、最終決戦の点数が入ると使えます)。", "warn"); return; }
+        if (res.status === "tie") { resStatus("三すくみで、順位がまだ決まっていません。トーナメント表の画面で運営が順位を決めてください。", "warn"); return; }
+        res.order.forEach(function (team, index) {
+          var row = resPodiumEl.querySelector('[data-podium="' + (index + 1) + '"]');
+          numInput(row).value = team.number;
+          nameInput(row).value = team.name;
+          nameInput(row).dataset.manual = "";
+        });
+        resStatus("1〜3位を入れました。内容を確かめて「保存」を押してください。", "ok");
+      }).catch(function (err) {
+        resStatus((err && err.message) || "通信に失敗しました。", "warn");
+      }).then(function () { button.disabled = false; });
+    });
+
+    document.getElementById("res-add").addEventListener("click", function () {
+      if (resAwardsEl.querySelectorAll("[data-award]").length >= MAX_AWARDS) { resStatus("賞は " + MAX_AWARDS + " 件までです。", "warn"); return; }
+      resAwardsEl.insertAdjacentHTML("beforeend", awardRowHtml({ title: "", number: "", name: "" }));
+    });
+
+    document.querySelector("#res-podium").addEventListener("input", markManual);
+    document.querySelector("#res-awards").addEventListener("input", markManual);
+    function markManual(event) {
+      if (event.target.classList.contains("res-name")) event.target.dataset.manual = event.target.value ? "1" : "";
+    }
+
+    resAwardsEl.addEventListener("click", function (event) {
+      var del = event.target.closest(".res-del");
+      if (del) del.closest(".res-row").remove();
+    });
+
+    // 機体番号から名前を呼び出す(ボタンを押したときだけAPIを使う)
+    document.getElementById("res-lookup").addEventListener("click", function (event) {
+      var rows = resultRows().filter(function (row) { return numInput(row).value.trim(); });
+      if (!rows.length) { resStatus("機体番号が入っていません。", "warn"); return; }
+      var button = event.currentTarget;
+      button.disabled = true; resStatus("呼び出し中…", "");
+      postJson({ action: "lookupRobots", token: RRST_ADMIN.token, numbers: rows.map(function (row) { return numInput(row).value.trim(); }) }).then(function (res) {
+        if (!res || !res.ok) throw new Error((res && res.error) || "呼び出せませんでした");
+        var filled = 0, kept = 0, missing = 0;
+        rows.forEach(function (row) {
+          var name = res.names[numInput(row).value.trim()];
+          if (!name) { missing += 1; return; }
+          if (nameInput(row).dataset.manual === "1") { kept += 1; return; } // 手で直した名前は残す
+          nameInput(row).value = name;
+          nameInput(row).dataset.manual = "";
+          filled += 1;
+        });
+        resStatus(filled + "件の名前を入れました" + (kept ? "(手で入れた名前" + kept + "件はそのまま)" : "") + (missing ? "。見つからない番号が" + missing + "件あります" : "") + "。内容を確かめて「保存」を押してください。", missing ? "warn" : "ok");
+      }).catch(function (err) {
+        resStatus((err && err.message) || "通信に失敗しました。", "warn");
+      }).then(function () { button.disabled = false; });
+    });
+
+    document.getElementById("res-save").addEventListener("click", function (event) {
+      var button = event.currentTarget;
+      button.disabled = true; resStatus("保存中…", "");
+      postJson({ action: "setResults", token: RRST_ADMIN.token, results: readResultsForm() }).then(function (res) {
+        if (!res || !res.ok) throw new Error((res && res.error) || "保存できませんでした");
+        renderResults(res.results);
+        resStatus("保存しました。サイトに出すには、上の「結果発表」を「公開中」にしてください。", "ok");
+      }).catch(function (err) {
+        resStatus((err && err.message) || "通信に失敗しました。もう一度お試しください。", "warn");
+      }).then(function () { button.disabled = false; });
+    });
+
     // ログインできたら、コートごとの並びと、公開・表示の状態を読む
     function startEditor() {
       loadAll();
       loadFlags();
+      loadResults();
     }
 
     renderFlags();

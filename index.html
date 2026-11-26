@@ -43,7 +43,8 @@
     <button class="menu-toggle" aria-label="メニューを開く">☰</button>
     </div>
 
-    <div class="quick-nav" id="quick-nav">
+    <div class="quick-nav" id="quick-nav">      
+      <a href="#results" data-target="results" data-show-if="resultsPublished" style="display:none">結果発表</a>
       <a href="#entry" data-target="entry" data-show-if="entryOpen" style="display:none">応募</a>
       <a href="#next-match" data-target="next-match">次の試合</a>
       <a href="#tournament" data-target="tournament">トーナメント表</a>
@@ -55,6 +56,7 @@
     </div>
 
     <nav>
+      <a href="#results" data-show-if="resultsPublished" style="display:none">結果発表</a>
       <a href="#entry" data-show-if="entryOpen" style="display:none">応募</a>
       <a href="#next-match">次の試合</a>
       <a href="#tournament">トーナメント表</a>
@@ -71,6 +73,13 @@
   </header>
 
   <main>
+    <!-- 結果発表: 公開するかどうかと中身は、管理者ページの「大会設定」で切り替え・入力します(results.js が表示します) -->
+    <section id="results" class="card" data-show-if="resultsPublished" style="display:none">
+      <p class="results-thanks">第<span data-setting="edition">17</span>回立命杯は終了いたしました。<br>参加者の皆様、協賛していただきました企業・団体様、ありがとうございました。</p>
+      <div id="results-podium"></div>
+      <div id="results-awards"></div>
+    </section>
+
     <!-- 応募セクション: 表示するかどうかは、管理者ページの「大会設定」で決めます(settings.txt の entryOpen) -->
     <section id="entry" class="card" data-show-if="entryOpen" style="display:none">
       <h2>応募</h2>
@@ -345,6 +354,7 @@
   <script src="settings.js?v=20261126"></script>
   <script src="script.js?v=20260920"></script>
   <script src="entries.js?v=20261127"></script>
+  <script src="results.js?v=20261128"></script>
   <script src="quicknav.js?v=20261122"></script>
 </body>
 </html>
